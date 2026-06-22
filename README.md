@@ -26,6 +26,9 @@ Host this folder on an HTTPS website once, open it in Safari, and choose **Share
 - Installable Home Screen app with full offline caching
 - Local pitch time included in CSV exports
 - Dedicated iPad Split View layout with touch-sized controls and sticky pitch entry
+- Detailed in-play scoring for contact type, hit value, and out position
+- Separate Home and Away team names, selectable field positions, and offline lineup PDF export
+- Tap any pitch-history row to edit details, outcome, and location with automatic game-state recalculation
 - Automatic ball-strike count updates
 - Automatic strikeout/in-play outs and half-inning advancement after three outs
 - Pitch history and game summary

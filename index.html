@@ -20,7 +20,8 @@
       <span>Pitch<span>Track</span></span>
     </a>
     <div class="game-meta">
-      <label>Opponent <input id="opponent" placeholder="Team name"></label>
+      <label>Home <input id="homeTeam" placeholder="Home team"></label>
+      <label>Away <input id="awayTeam" placeholder="Away team"></label>
       <label>Date <input id="gameDate" type="date"></label>
     </div>
     <button class="button install-button" id="installButton">＋ Install App</button>
@@ -101,14 +102,41 @@
         </div>
 
         <fieldset>
-          <legend>Result</legend>
-          <div class="result-grid" id="results">
+          <legend>Pitch result</legend>
+          <div class="result-grid" id="basicResults">
             <button data-value="Ball">Ball</button><button data-value="Called strike">Called strike</button>
             <button data-value="Swinging strike">Swing & miss</button><button data-value="Foul">Foul</button>
-            <button data-value="Strikeout">Strikeout</button><button data-value="In play - out">In play: out</button>
-            <button data-value="In play - hit">In play: hit</button>
+            <button data-value="Strikeout">Strikeout</button>
           </div>
         </fieldset>
+
+        <fieldset class="in-play-section">
+          <legend>In play — contact</legend>
+          <div class="result-grid contact-grid" id="contactTypes">
+            <button data-value="Fly ball">Fly ball</button><button data-value="Ground ball">Ground ball</button>
+            <button data-value="Line drive">Line drive</button><button data-value="Pop up">Pop up</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="in-play-section">
+          <legend>In play — result</legend>
+          <div class="play-result-grid" id="inPlayResults">
+            <button data-value="Single" title="Single" aria-label="H1 Single">H1</button><button data-value="Double" title="Double" aria-label="H2 Double">H2</button>
+            <button data-value="Triple" title="Triple" aria-label="H3 Triple">H3</button><button data-value="Home run" title="Home run" aria-label="H4 Home run">H4</button>
+            <button data-value="In play - out">Out</button>
+          </div>
+        </fieldset>
+
+        <div class="out-location" id="outLocationWrap" hidden>
+          <span class="out-location-label">Where was the out?</span>
+          <div class="position-grid" id="outPositions">
+            <button data-value="P" title="Pitcher">P</button><button data-value="C" title="Catcher">C</button>
+            <button data-value="1B" title="First base">1B</button><button data-value="2B" title="Second base">2B</button>
+            <button data-value="3B" title="Third base">3B</button><button data-value="SS" title="Shortstop">SS</button>
+            <button data-value="LF" title="Left field">LF</button><button data-value="CF" title="Center field">CF</button>
+            <button data-value="RF" title="Right field">RF</button>
+          </div>
+        </div>
 
         <button class="button button-primary record" id="recordButton" disabled>Record pitch <span>→</span></button>
       </aside>
@@ -153,7 +181,7 @@
     </div>
     <div class="dialog-actions">
       <span id="lineupCount">Away Team · No players added</span>
-      <div><button class="button dialog-cancel" id="cancelLineup">Cancel</button><button class="button button-primary" id="saveLineup">Save lineups</button></div>
+      <div><button class="button pdf-button" id="exportLineupsPdf">Export PDF</button><button class="button dialog-cancel" id="cancelLineup">Cancel</button><button class="button button-primary" id="saveLineup">Save lineups</button></div>
     </div>
   </dialog>
 
@@ -183,7 +211,37 @@
     <div class="dialog-actions rename-actions"><button class="button button-primary" id="doneInstall">Got it</button></div>
   </dialog>
 
+  <dialog class="edit-pitch-dialog" id="editPitchDialog">
+    <div class="dialog-heading compact">
+      <div><p class="eyebrow">Pitch history</p><h2>Edit pitch <span id="editPitchNumber"></span></h2></div>
+      <button class="dialog-close" id="closeEditPitch" aria-label="Close pitch editor">×</button>
+    </div>
+    <div class="edit-pitch-layout">
+      <section>
+        <span class="edit-section-label">Pitch location</span>
+        <div class="edit-zone" id="editZone">
+          <div class="strike-zone" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="plate" aria-hidden="true"></div>
+          <span class="edit-zone-marker" id="editZoneMarker"></span>
+        </div>
+        <small>Tap to move the pitch.</small>
+      </section>
+      <section class="edit-pitch-fields">
+        <label><span>Pitcher</span><input id="editPitcherName" maxlength="50"></label>
+        <label><span>Batter</span><input id="editBatterName" maxlength="50"></label>
+        <label><span>Pitch type</span><select id="editPitchType"><option>Four-seam</option><option>Two-seam</option><option>Cutter</option><option>Slider</option><option>Curveball</option><option>Changeup</option><option>Splitter</option><option>Other</option></select></label>
+        <label><span>Velocity</span><select id="editVelocity"><option value="">Not recorded</option></select></label>
+        <label><span>Result</span><select id="editResult"><option>Ball</option><option>Called strike</option><option>Swinging strike</option><option>Foul</option><option>Strikeout</option><option>Single</option><option>Double</option><option>Triple</option><option>Home run</option><option value="In play - out">Out</option></select></label>
+        <label id="editContactWrap"><span>Contact</span><select id="editContact"><option value="">Choose contact</option><option>Fly ball</option><option>Ground ball</option><option>Line drive</option><option>Pop up</option></select></label>
+        <label id="editOutWrap"><span>Out position</span><select id="editOutPosition"><option value="">Choose position</option><option>P</option><option>C</option><option>1B</option><option>2B</option><option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option></select></label>
+        <label class="edit-note"><span>Note</span><input id="editNote" maxlength="80"></label>
+      </section>
+    </div>
+    <div class="dialog-actions rename-actions"><button class="button dialog-cancel" id="cancelEditPitch">Cancel</button><button class="button button-primary" id="saveEditPitch">Save changes</button></div>
+  </dialog>
+
   <div class="toast" id="toast" role="status"></div>
+  <script src="pdf-export.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
