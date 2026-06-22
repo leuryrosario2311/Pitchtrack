@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#102820">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PitchTrack">
+  <title>PitchTrack — Baseball Pitch Chart</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="PitchTrack home">
+      <span class="brand-mark" aria-hidden="true">P</span>
+      <span>Pitch<span>Track</span></span>
+    </a>
+    <div class="game-meta">
+      <label>Opponent <input id="opponent" placeholder="Team name"></label>
+      <label>Date <input id="gameDate" type="date"></label>
+    </div>
+    <button class="button install-button" id="installButton">＋ Install App</button>
+    <button class="button button-lineup" id="lineupButton">☷ Lineups</button>
+    <button class="button button-ghost" id="exportButton">Export CSV</button>
+  </header>
+
+  <main>
+    <section class="score-strip" aria-label="Game situation">
+      <label><span>Inning</span><select id="inning"></select></label>
+      <label><span>Half</span><select id="half"><option>Top</option><option>Bottom</option></select></label>
+      <div class="outs" aria-label="Outs">
+        <span>Outs</span>
+        <div class="out-buttons" id="outButtons">
+          <button data-outs="0" class="active">0</button><button data-outs="1">1</button><button data-outs="2">2</button>
+        </div>
+      </div>
+      <div class="player-control">
+        <label><span>Pitcher</span><select id="pitcher" aria-label="Choose pitcher"><option value="">Choose pitcher</option></select></label>
+        <button id="editPitcher" class="player-action" type="button" title="Rename selected pitcher">Edit</button>
+      </div>
+      <div class="player-control">
+        <label><span>Batter</span><select id="batter" aria-label="Choose batter"><option value="">Choose batter</option></select></label>
+        <div class="player-action-row"><button id="editBatter" class="player-action" type="button" title="Rename selected batter">Edit</button><button id="nextBatter" class="player-action next-batter" type="button" title="Advance to next batter">Next →</button></div>
+      </div>
+      <label><span>Bats</span><select id="bats"><option>R</option><option>L</option><option>S</option></select></label>
+    </section>
+
+    <section class="workspace">
+      <article class="panel chart-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">Pitch location</p><h1>Tap where it crossed the plate</h1></div>
+          <div class="count-badge"><span id="ballCount">0</span>–<span id="strikeCount">0</span></div>
+        </div>
+
+        <div class="zone-wrap">
+          <span class="batter-side left">LHB</span>
+          <div class="zone-stage" id="zoneStage" role="button" tabindex="0" aria-label="Pitch location chart">
+            <div class="strike-zone" aria-hidden="true">
+              <i></i><i></i><i></i><i></i>
+            </div>
+            <div class="plate" aria-hidden="true"></div>
+            <div id="pitchMarkers"></div>
+            <div class="crosshair" id="crosshair" aria-hidden="true"></div>
+          </div>
+          <span class="batter-side right">RHB</span>
+        </div>
+        <p class="zone-help" id="zoneHelp">Select a location to enable “Record pitch”.</p>
+
+        <div class="legend">
+          <span><i class="legend-dot fastball"></i>Fastball</span>
+          <span><i class="legend-dot breaking"></i>Breaking</span>
+          <span><i class="legend-dot offspeed"></i>Off-speed</span>
+          <span><i class="legend-dot other"></i>Other</span>
+        </div>
+      </article>
+
+      <aside class="panel entry-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Current pitch</p><h2>Pitch details</h2></div><span class="pitch-number" id="pitchNumber">#1</span></div>
+
+        <fieldset>
+          <legend>Pitch type</legend>
+          <div class="choice-grid" id="pitchTypes">
+            <button data-value="Four-seam" data-group="fastball" class="selected">4-Seam</button>
+            <button data-value="Two-seam" data-group="fastball">2-Seam</button>
+            <button data-value="Cutter" data-group="breaking">Cutter</button>
+            <button data-value="Slider" data-group="breaking">Slider</button>
+            <button data-value="Curveball" data-group="breaking">Curve</button>
+            <button data-value="Changeup" data-group="offspeed">Change</button>
+            <button data-value="Splitter" data-group="offspeed">Splitter</button>
+            <button data-value="Other" data-group="other">Other</button>
+          </div>
+        </fieldset>
+
+        <div class="field-row">
+          <label class="field"><span>Velocity <small>MPH</small></span><select id="velocity" aria-label="Pitch velocity"><option value="">Not recorded</option></select></label>
+          <label class="field"><span>Sequence note</span><input id="note" maxlength="80" placeholder="Optional"></label>
+        </div>
+
+        <fieldset>
+          <legend>Result</legend>
+          <div class="result-grid" id="results">
+            <button data-value="Ball">Ball</button><button data-value="Called strike">Called strike</button>
+            <button data-value="Swinging strike">Swing & miss</button><button data-value="Foul">Foul</button>
+            <button data-value="Strikeout">Strikeout</button><button data-value="In play - out">In play: out</button>
+            <button data-value="In play - hit">In play: hit</button>
+          </div>
+        </fieldset>
+
+        <button class="button button-primary record" id="recordButton" disabled>Record pitch <span>→</span></button>
+      </aside>
+    </section>
+
+    <section class="panel log-panel">
+      <div class="panel-heading log-heading">
+        <div><p class="eyebrow">Game log</p><h2>Pitch history</h2></div>
+        <div class="summary" id="summary"><span><b>0</b> pitches</span><span><b>—</b> avg mph</span><span><b>0%</b> strikes</span></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Inning</th><th>Count</th><th>Pitcher</th><th>Batter</th><th>Pitch</th><th>Velocity</th><th>Result</th><th>Location</th></tr></thead>
+          <tbody id="pitchLog"></tbody>
+        </table>
+        <div class="empty-state" id="emptyState"><span>⚾</span><p>No pitches recorded yet.</p><small>Your game story will appear here, one pitch at a time.</small></div>
+      </div>
+      <div class="log-actions"><button class="text-button" id="undoButton" disabled>↶ Undo last pitch</button><button class="text-button danger" id="resetButton" disabled>Reset game</button></div>
+    </section>
+  </main>
+
+  <dialog class="lineup-dialog" id="lineupDialog">
+    <div class="dialog-heading">
+      <div><p class="eyebrow">Game roster</p><h2>Build your lineups</h2><p>Set the batting order and pitching staff for quick selection during the game.</p></div>
+      <button class="dialog-close" id="closeLineup" aria-label="Close lineup manager">×</button>
+    </div>
+    <div class="team-tabs" id="teamTabs" role="tablist" aria-label="Choose team lineup">
+      <button class="team-tab" data-team="home" role="tab" aria-selected="false"><span>HOME</span> Home Team</button>
+      <button class="team-tab active" data-team="away" role="tab" aria-selected="true"><span>AWAY</span> Away Team</button>
+    </div>
+    <div class="lineup-columns">
+      <section>
+        <div class="lineup-title"><h3>Batting order</h3><div><button class="quick-fill" id="quickBatters" type="button">Quick fill</button><button class="add-player" id="addBatterRow" type="button">＋ Add player</button></div></div>
+        <div class="lineup-header batting"><span>Order</span><span>Player name</span><span>No.</span><span>Pos</span><span>Bats</span><span></span></div>
+        <div class="lineup-list" id="battingLineup"></div>
+      </section>
+      <section>
+        <div class="lineup-title"><h3>Pitching staff</h3><div><button class="quick-fill" id="quickPitchers" type="button">Quick fill</button><button class="add-player" id="addPitcherRow" type="button">＋ Add pitcher</button></div></div>
+        <div class="lineup-header pitching"><span>#</span><span>Pitcher name</span><span>No.</span><span>Throws</span><span></span></div>
+        <div class="lineup-list" id="pitchingStaff"></div>
+      </section>
+    </div>
+    <div class="dialog-actions">
+      <span id="lineupCount">Away Team · No players added</span>
+      <div><button class="button dialog-cancel" id="cancelLineup">Cancel</button><button class="button button-primary" id="saveLineup">Save lineups</button></div>
+    </div>
+  </dialog>
+
+  <dialog class="rename-dialog" id="renameDialog">
+    <div class="dialog-heading compact">
+      <div><p class="eyebrow">Quick edit</p><h2 id="renameTitle">Rename player</h2></div>
+      <button class="dialog-close" id="closeRename" aria-label="Close player editor">×</button>
+    </div>
+    <div class="rename-body">
+      <label class="rename-field"><span>Player name</span><input id="renameInput" maxlength="50" autocomplete="off"></label>
+      <p>This updates the dropdown and any pitches already recorded for this player.</p>
+    </div>
+    <div class="dialog-actions rename-actions"><button class="button dialog-cancel" id="cancelRename">Cancel</button><button class="button button-primary" id="saveRename">Save name</button></div>
+  </dialog>
+
+  <dialog class="install-dialog" id="installDialog">
+    <div class="dialog-heading compact">
+      <div><p class="eyebrow">Offline on iPad</p><h2>Install PitchTrack</h2></div>
+      <button class="dialog-close" id="closeInstall" aria-label="Close installation guide">×</button>
+    </div>
+    <div class="install-steps">
+      <div><span>1</span><p>Open the hosted PitchTrack page once in <b>Safari</b> while you have internet.</p></div>
+      <div><span>2</span><p>Tap the <b>Share</b> button, then choose <b>Add to Home Screen</b>.</p></div>
+      <div><span>3</span><p>Launch PitchTrack from its Home Screen icon. It will work without internet.</p></div>
+      <small>Your lineups and games stay on this iPad unless you export them.</small>
+    </div>
+    <div class="dialog-actions rename-actions"><button class="button button-primary" id="doneInstall">Got it</button></div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
