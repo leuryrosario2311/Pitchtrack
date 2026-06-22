@@ -281,8 +281,11 @@ $('recordButton').addEventListener('click', () => {
   const fieldingTeam = battingTeam === 'away' ? 'home' : 'away';
   const batterPlayer = state.lineups[battingTeam].batters.find(player => player.name === $('batter').value);
   const pitcherPlayer = state.lineups[fieldingTeam].pitchers.find(player => player.name === $('pitcher').value);
+  const recordedAt = new Date();
   const pitch = {
     number: state.pitches.length + 1, inning: $('inning').value, half: $('half').value,
+    time: recordedAt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}),
+    recordedAt: recordedAt.toISOString(),
     count: `${state.balls}-${state.strikes}`, outs: state.outs,
     pitcher: $('pitcher').value.trim() || '—', pitcherNumber: pitcherPlayer?.number || '',
     batter: $('batter').value.trim() || '—', batterNumber: batterPlayer?.number || '', bats: $('bats').value,
@@ -370,8 +373,8 @@ $('resetButton').addEventListener('click', () => {
 
 $('exportButton').addEventListener('click', () => {
   if (!state.pitches.length) return showToast('Record a pitch before exporting');
-  const headers = ['Pitch #','Date','Opponent','Inning','Half','Outs','Count','Pitcher #','Pitcher','Batter #','Batter','Bats','Pitch Type','Velocity','Result','Location','X %','Y %','Note'];
-  const rows = state.pitches.map(p => [p.number,$('gameDate').value,$('opponent').value,p.inning,p.half,p.outs,p.count,p.pitcherNumber || '',p.pitcher,p.batterNumber || '',p.batter,p.bats,p.type,p.velocity,p.result,locationName(p.location),p.location.x.toFixed(1),p.location.y.toFixed(1),p.note]);
+  const headers = ['Pitch #','Date','Time','Opponent','Inning','Half','Outs','Count','Pitcher #','Pitcher','Batter #','Batter','Bats','Pitch Type','Velocity','Result','Location','X %','Y %','Note'];
+  const rows = state.pitches.map(p => [p.number,$('gameDate').value,p.time || '',$('opponent').value,p.inning,p.half,p.outs,p.count,p.pitcherNumber || '',p.pitcher,p.batterNumber || '',p.batter,p.bats,p.type,p.velocity,p.result,locationName(p.location),p.location.x.toFixed(1),p.location.y.toFixed(1),p.note]);
   const csv = [headers,...rows].map(row => row.map(value => `"${String(value).replaceAll('"','""')}"`).join(',')).join('\n');
   const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
   link.download = `pitch-chart-${$('gameDate').value || 'game'}.csv`; link.click(); URL.revokeObjectURL(link.href);

@@ -24,6 +24,8 @@ Host this folder on an HTTPS website once, open it in Safari, and choose **Share
 - Jersey numbers for all batters and pitchers
 - 30–110 MPH velocity dropdown that remembers the previous selection
 - Installable Home Screen app with full offline caching
+- Local pitch time included in CSV exports
+- Dedicated iPad Split View layout with touch-sized controls and sticky pitch entry
 - Automatic ball-strike count updates
 - Automatic strikeout/in-play outs and half-inning advancement after three outs
 - Pitch history and game summary

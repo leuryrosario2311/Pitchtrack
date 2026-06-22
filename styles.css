@@ -140,5 +140,28 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
 .install-steps p { margin: 3px 0 0; color: #43504a; font-size: 13px; line-height: 1.45; }
 .install-steps small { margin-top: 3px; padding: 10px 12px; color: #53615a; background: #eef0e3; border-radius: 7px; font-size: 10px; line-height: 1.45; }
 @media (max-width: 900px) { .topbar { flex-wrap: wrap; }.game-meta { order: 3; width: 100%; }.game-meta label { flex: 1; }.game-meta input { width: 100%; }.score-strip { grid-template-columns: repeat(3,1fr); }.workspace { grid-template-columns: 1fr; }.entry-panel { order: -1; }.zone-wrap { grid-template-columns: 25px minmax(220px,430px) 25px; }.summary { gap: 12px; } }
+@media (max-width: 760px) {
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  .topbar { gap: 8px; padding: 10px max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left)); }
+  .brand { font-size: 18px; }
+  .brand-mark { width: 34px; height: 34px; }
+  .topbar .button { min-height: 44px; padding-inline: 12px; }
+  .game-meta { gap: 12px; }
+  main { width: calc(100% - 16px); margin: 10px auto 32px; }
+  .score-strip { gap: 11px; padding: 15px; margin-bottom: 10px; }
+  .score-strip input, .score-strip select { min-height: 42px; padding: 8px 2px; }
+  .out-buttons button { width: 40px; height: 40px; }
+  .player-action { height: 42px; min-width: 42px; }
+  .workspace { gap: 10px; }
+  .entry-panel { order: initial; }
+  .chart-panel, .entry-panel { padding: 21px 18px; }
+  .zone-wrap { grid-template-columns: 20px minmax(220px,430px) 20px; margin-top: 16px; }
+  .choice-grid button, .result-grid button { min-height: 44px; }
+  .field input, .field select { min-height: 46px; }
+  .record { position: sticky; bottom: max(8px,env(safe-area-inset-bottom)); z-index: 5; min-height: 50px; box-shadow: 0 8px 22px rgba(18,63,49,.24); }
+  .log-panel { margin-top: 10px; }
+  .table-wrap table { min-width: 820px; }
+  .log-actions .text-button { min-height: 44px; }
+}
 @media (max-width: 700px) { .lineup-columns { grid-template-columns: 1fr; }.lineup-dialog { max-height: 96vh; }.dialog-actions { align-items: flex-start; }.dialog-actions > span { display: none; } }
-@media (max-width: 540px) { main { width: 96vw; margin-top: 10px; }.topbar { gap: 12px; padding: 12px 15px; }.score-strip { grid-template-columns: repeat(2,1fr); gap: 12px; }.chart-panel, .entry-panel { padding: 20px 16px; }.choice-grid { grid-template-columns: repeat(2,1fr); }.zone-wrap { gap: 4px; }.summary { display: none; }.log-heading { padding-inline: 18px; }.lineup-columns, .dialog-heading { padding-inline: 17px; }.dialog-actions { padding: 13px 17px; justify-content: flex-end; } }
+@media (max-width: 540px) { main { width: calc(100% - 12px); margin-top: 7px; }.topbar { gap: 8px; }.score-strip { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }.chart-panel, .entry-panel { padding: 18px 14px; }.choice-grid { grid-template-columns: repeat(2,1fr); }.zone-wrap { gap: 2px; }.summary { display: none; }.log-heading { padding-inline: 16px; }.lineup-columns, .dialog-heading { padding-inline: 15px; }.dialog-actions { padding: 13px 15px; justify-content: flex-end; } }
