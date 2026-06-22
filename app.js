@@ -13,6 +13,7 @@ const state = {
   selectedPitchers: {home: '', away: ''}
 };
 let editingTeam = 'away';
+let lineupSnapshot = null;
 
 const fields = ['homeTeam', 'awayTeam', 'gameDate', 'inning', 'half', 'pitcher', 'batter', 'bats'];
 const today = new Date();
@@ -104,7 +105,10 @@ function updateLineupCount() {
   $('lineupCount').textContent = count ? `${teamName} · ${count} player${count === 1 ? '' : 's'} ready` : `${teamName} · No players added`;
 }
 
-$('lineupButton').addEventListener('click', () => { buildLineupEditor(); $('lineupDialog').showModal(); });
+$('lineupButton').addEventListener('click', () => {
+  lineupSnapshot = JSON.parse(JSON.stringify(state.lineups));
+  buildLineupEditor(); $('lineupDialog').showModal();
+});
 $('teamTabs').addEventListener('click', (event) => {
   const tab = event.target.closest('.team-tab');
   if (!tab || tab.dataset.team === editingTeam) return;
@@ -117,10 +121,16 @@ $('teamTabs').addEventListener('click', (event) => {
   });
   buildLineupEditor();
 });
-$('closeLineup').addEventListener('click', () => $('lineupDialog').close());
-$('cancelLineup').addEventListener('click', () => $('lineupDialog').close());
+function cancelLineupChanges() {
+  if (lineupSnapshot) state.lineups = JSON.parse(JSON.stringify(lineupSnapshot));
+  lineupSnapshot = null;
+  syncPlayersForHalf();
+  $('lineupDialog').close();
+}
+$('closeLineup').addEventListener('click', cancelLineupChanges);
+$('cancelLineup').addEventListener('click', cancelLineupChanges);
 $('lineupDialog').addEventListener('input', updateLineupCount);
-$('lineupDialog').addEventListener('click', (event) => { if (event.target === $('lineupDialog')) $('lineupDialog').close(); });
+$('lineupDialog').addEventListener('click', (event) => { if (event.target === $('lineupDialog')) cancelLineupChanges(); });
 $('quickBatters').addEventListener('click', () => {
   $('battingLineup').querySelectorAll('.lineup-name').forEach((input, index) => { if (!input.value.trim()) input.value = `Player ${index + 1}`; });
   updateLineupCount();
@@ -149,10 +159,42 @@ $('lineupDialog').addEventListener('click', (event) => {
   collection.splice(Number(button.dataset.index), 1);
   buildLineupEditor();
 });
+
+function pitchBelongsToTeam(pitch, kind, team) {
+  const battingTeam = pitch.half === 'Top' ? 'away' : 'home';
+  const playerTeam = kind === 'batter' ? battingTeam : (battingTeam === 'away' ? 'home' : 'away');
+  return playerTeam === team;
+}
+
+function propagateLineupChanges(previousLineups) {
+  if (!previousLineups) return;
+  ['home', 'away'].forEach((team) => {
+    ['batters', 'pitchers'].forEach((collectionName) => {
+      const kind = collectionName === 'batters' ? 'batter' : 'pitcher';
+      const before = previousLineups[team][collectionName] || [];
+      const after = state.lineups[team][collectionName] || [];
+      before.forEach((oldPlayer, index) => {
+        const newPlayer = after[index];
+        if (!oldPlayer?.name || !newPlayer?.name) return;
+        state.pitches.forEach((pitch) => {
+          if (pitch[kind] !== oldPlayer.name || !pitchBelongsToTeam(pitch, kind, team)) return;
+          pitch[kind] = newPlayer.name;
+          pitch[`${kind}Number`] = newPlayer.number || '';
+          if (kind === 'batter') pitch.bats = newPlayer.bats;
+        });
+        if (kind === 'pitcher' && state.selectedPitchers[team] === oldPlayer.name) state.selectedPitchers[team] = newPlayer.name;
+      });
+    });
+  });
+}
+
 $('saveLineup').addEventListener('click', () => {
-  readLineupEditor(); renderLineupOptions(); save(); $('lineupDialog').close();
+  readLineupEditor();
+  propagateLineupChanges(lineupSnapshot);
+  lineupSnapshot = null;
+  renderLineupOptions(); save(); $('lineupDialog').close();
   syncPlayersForHalf();
-  save(); showToast('Lineups saved');
+  render(); save(); showToast('Lineups and pitch history updated');
 });
 $('exportLineupsPdf').addEventListener('click', () => {
   readLineupEditor();
@@ -238,7 +280,9 @@ $('saveRename').addEventListener('click', () => {
   const player = collection.find(p => p.name === oldName);
   if (player) player.name = newName;
   if (editingPlayerKind === 'pitcher' && state.selectedPitchers[team] === oldName) state.selectedPitchers[team] = newName;
-  state.pitches.forEach(pitch => { if (pitch[editingPlayerKind] === oldName) pitch[editingPlayerKind] = newName; });
+  state.pitches.forEach(pitch => {
+    if (pitch[editingPlayerKind] === oldName && pitchBelongsToTeam(pitch, editingPlayerKind, team)) pitch[editingPlayerKind] = newName;
+  });
   renderLineupOptions();
   $(editingPlayerKind).value = newName;
   render(); save(); $('renameDialog').close(); showToast(`${oldName} renamed to ${newName}`);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pitchtrack-v8';
+const CACHE_NAME = 'pitchtrack-v9';
 const APP_SHELL = [
   './',
   './index.html',

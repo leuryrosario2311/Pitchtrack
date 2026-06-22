@@ -29,6 +29,7 @@ Host this folder on an HTTPS website once, open it in Safari, and choose **Share
 - Detailed in-play scoring for contact type, hit value, and out position
 - Separate Home and Away team names, selectable field positions, and offline lineup PDF export
 - Tap any pitch-history row to edit details, outcome, and location with automatic game-state recalculation
+- Lineup renames automatically propagate to that team's existing pitch history
 - Automatic ball-strike count updates
 - Automatic strikeout/in-play outs and half-inning advancement after three outs
 - Pitch history and game summary
