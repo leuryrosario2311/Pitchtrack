@@ -1,8 +1,10 @@
 const STORAGE_KEY = 'pitchtrack-game-v1';
 const $ = (id) => document.getElementById(id);
+let playerIdSeed = 0;
+const createPlayerId = (kind) => `${kind}-${Date.now().toString(36)}-${++playerIdSeed}`;
 const createLineup = () => ({
-  batters: Array.from({length: 9}, () => ({name: '', number: '', position: '', bats: 'R'})),
-  pitchers: Array.from({length: 6}, () => ({name: '', number: '', throws: 'R'}))
+  batters: Array.from({length: 9}, () => ({id: createPlayerId('batter'), name: '', number: '', position: '', bats: 'R'})),
+  pitchers: Array.from({length: 6}, () => ({id: createPlayerId('pitcher'), name: '', number: '', throws: 'R'}))
 });
 
 const state = {
@@ -50,7 +52,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 function buildLineupEditor() {
   const lineup = state.lineups[editingTeam];
   $('battingLineup').innerHTML = lineup.batters.map((player, index) => `
-    <div class="lineup-row batting">
+    <div class="lineup-row batting" data-player-id="${player.id}">
       <span class="order-number">${index + 1}</span>
       <input class="lineup-name" data-kind="batter" data-index="${index}" value="${escapeHtml(player.name)}" placeholder="Player ${index + 1}" aria-label="Batter ${index + 1} name">
       <input class="lineup-number" data-index="${index}" value="${escapeHtml(player.number || '')}" placeholder="#" maxlength="3" inputmode="numeric" aria-label="Batter ${index + 1} jersey number">
@@ -59,7 +61,7 @@ function buildLineupEditor() {
       <button class="remove-player" data-kind="batter" data-index="${index}" type="button" title="Remove ${escapeHtml(player.name || `Player ${index + 1}`)}" aria-label="Remove batter ${index + 1}">×</button>
     </div>`).join('');
   $('pitchingStaff').innerHTML = lineup.pitchers.map((player, index) => `
-    <div class="lineup-row pitching">
+    <div class="lineup-row pitching" data-player-id="${player.id}">
       <span class="order-number">${index + 1}</span>
       <input class="lineup-name" data-kind="pitcher" data-index="${index}" value="${escapeHtml(player.name)}" placeholder="Pitcher ${index + 1}" aria-label="Pitcher ${index + 1} name">
       <input class="lineup-number" data-index="${index}" value="${escapeHtml(player.number || '')}" placeholder="#" maxlength="3" inputmode="numeric" aria-label="Pitcher ${index + 1} jersey number">
@@ -76,10 +78,10 @@ function positionOptions(selected = '') {
 
 function readLineupEditor() {
   state.lineups[editingTeam].batters = [...$('battingLineup').querySelectorAll('.lineup-row')].map((row) => ({
-    name: row.querySelector('.lineup-name').value.trim(), number: row.querySelector('.lineup-number').value.trim(), position: row.querySelector('.lineup-position').value.trim().toUpperCase(), bats: row.querySelector('.lineup-bats').value
+    id: row.dataset.playerId, name: row.querySelector('.lineup-name').value.trim(), number: row.querySelector('.lineup-number').value.trim(), position: row.querySelector('.lineup-position').value.trim().toUpperCase(), bats: row.querySelector('.lineup-bats').value
   }));
   state.lineups[editingTeam].pitchers = [...$('pitchingStaff').querySelectorAll('.lineup-row')].map((row) => ({
-    name: row.querySelector('.lineup-name').value.trim(), number: row.querySelector('.lineup-number').value.trim(), throws: row.querySelector('.lineup-throws').value
+    id: row.dataset.playerId, name: row.querySelector('.lineup-name').value.trim(), number: row.querySelector('.lineup-number').value.trim(), throws: row.querySelector('.lineup-throws').value
   }));
 }
 
@@ -141,13 +143,13 @@ $('quickPitchers').addEventListener('click', () => {
 });
 $('addBatterRow').addEventListener('click', () => {
   readLineupEditor();
-  state.lineups[editingTeam].batters.push({name: '', number: '', position: '', bats: 'R'});
+  state.lineups[editingTeam].batters.push({id: createPlayerId('batter'), name: '', number: '', position: '', bats: 'R'});
   buildLineupEditor();
   $('battingLineup').querySelector('.lineup-row:last-child .lineup-name').focus();
 });
 $('addPitcherRow').addEventListener('click', () => {
   readLineupEditor();
-  state.lineups[editingTeam].pitchers.push({name: '', number: '', throws: 'R'});
+  state.lineups[editingTeam].pitchers.push({id: createPlayerId('pitcher'), name: '', number: '', throws: 'R'});
   buildLineupEditor();
   $('pitchingStaff').querySelector('.lineup-row:last-child .lineup-name').focus();
 });
@@ -173,11 +175,14 @@ function propagateLineupChanges(previousLineups) {
       const kind = collectionName === 'batters' ? 'batter' : 'pitcher';
       const before = previousLineups[team][collectionName] || [];
       const after = state.lineups[team][collectionName] || [];
-      before.forEach((oldPlayer, index) => {
-        const newPlayer = after[index];
+      before.forEach((oldPlayer) => {
+        const newPlayer = after.find(player => player.id === oldPlayer.id);
         if (!oldPlayer?.name || !newPlayer?.name) return;
         state.pitches.forEach((pitch) => {
-          if (pitch[kind] !== oldPlayer.name || !pitchBelongsToTeam(pitch, kind, team)) return;
+          const linkedById = pitch[`${kind}Id`] && pitch[`${kind}Id`] === oldPlayer.id;
+          const legacyMatch = !pitch[`${kind}Id`] && pitch[kind] === oldPlayer.name && pitchBelongsToTeam(pitch, kind, team);
+          if (!linkedById && !legacyMatch) return;
+          pitch[`${kind}Id`] = newPlayer.id;
           pitch[kind] = newPlayer.name;
           pitch[`${kind}Number`] = newPlayer.number || '';
           if (kind === 'batter') pitch.bats = newPlayer.bats;
@@ -281,7 +286,12 @@ $('saveRename').addEventListener('click', () => {
   if (player) player.name = newName;
   if (editingPlayerKind === 'pitcher' && state.selectedPitchers[team] === oldName) state.selectedPitchers[team] = newName;
   state.pitches.forEach(pitch => {
-    if (pitch[editingPlayerKind] === oldName && pitchBelongsToTeam(pitch, editingPlayerKind, team)) pitch[editingPlayerKind] = newName;
+    const linkedById = player?.id && pitch[`${editingPlayerKind}Id`] === player.id;
+    const legacyMatch = !pitch[`${editingPlayerKind}Id`] && pitch[editingPlayerKind] === oldName && pitchBelongsToTeam(pitch, editingPlayerKind, team);
+    if (linkedById || legacyMatch) {
+      pitch[`${editingPlayerKind}Id`] = player?.id || '';
+      pitch[editingPlayerKind] = newName;
+    }
   });
   renderLineupOptions();
   $(editingPlayerKind).value = newName;
@@ -464,6 +474,8 @@ $('saveEditPitch').addEventListener('click', () => {
   const pitcher = allPitchers.find(player => player.name === pitch.pitcher);
   pitch.batterNumber = batter?.number || '';
   pitch.pitcherNumber = pitcher?.number || '';
+  pitch.batterId = batter?.id || '';
+  pitch.pitcherId = pitcher?.id || '';
   if (batter) pitch.bats = batter.bats;
   replayGameState(); render(); save(); $('editPitchDialog').close(); showToast(`Pitch #${pitch.number} updated`);
 });
@@ -479,8 +491,8 @@ $('recordButton').addEventListener('click', () => {
     time: recordedAt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}),
     recordedAt: recordedAt.toISOString(),
     count: `${state.balls}-${state.strikes}`, outs: state.outs,
-    pitcher: $('pitcher').value.trim() || '—', pitcherNumber: pitcherPlayer?.number || '',
-    batter: $('batter').value.trim() || '—', batterNumber: batterPlayer?.number || '', bats: $('bats').value,
+    pitcher: $('pitcher').value.trim() || '—', pitcherId: pitcherPlayer?.id || '', pitcherNumber: pitcherPlayer?.number || '',
+    batter: $('batter').value.trim() || '—', batterId: batterPlayer?.id || '', batterNumber: batterPlayer?.number || '', bats: $('bats').value,
     type: state.pitchType, group: state.pitchGroup, velocity: $('velocity').value || '',
     result: state.result, contactType: state.contactType || '', outLocation: state.outLocation || '',
     note: $('note').value.trim(), location: {...state.location}
@@ -598,6 +610,22 @@ function save() {
   const data = { pitches: state.pitches, balls: state.balls, strikes: state.strikes, outs: state.outs, lineups: state.lineups, battingIndexes: state.battingIndexes, selectedPitchers: state.selectedPitchers, fields: Object.fromEntries(fields.map(id => [id, $(id).value])) };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
+
+function ensurePlayerLinks() {
+  ['home', 'away'].forEach((team) => {
+    state.lineups[team].batters.forEach(player => { if (!player.id) player.id = createPlayerId('batter'); });
+    state.lineups[team].pitchers.forEach(player => { if (!player.id) player.id = createPlayerId('pitcher'); });
+  });
+  state.pitches.forEach((pitch) => {
+    const battingTeam = pitch.half === 'Top' ? 'away' : 'home';
+    const fieldingTeam = battingTeam === 'away' ? 'home' : 'away';
+    const batter = state.lineups[battingTeam].batters.find(player => player.name && player.name === pitch.batter);
+    const pitcher = state.lineups[fieldingTeam].pitchers.find(player => player.name && player.name === pitch.pitcher);
+    if (!pitch.batterId && batter) pitch.batterId = batter.id;
+    if (!pitch.pitcherId && pitcher) pitch.pitcherId = pitcher.id;
+  });
+}
+
 function load() {
   try {
     const data = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (!data) return;
@@ -606,6 +634,7 @@ function load() {
     else if (data.lineup) state.lineups.away = data.lineup;
     if (data.battingIndexes) state.battingIndexes = data.battingIndexes;
     if (data.selectedPitchers) state.selectedPitchers = data.selectedPitchers;
+    ensurePlayerLinks();
     renderLineupOptions();
     fields.forEach(id => { if (data.fields?.[id] !== undefined) $(id).value = data.fields[id]; });
     updateOutButtons();
