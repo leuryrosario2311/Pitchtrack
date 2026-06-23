@@ -69,7 +69,7 @@
           </div>
           <span class="batter-side right">RHB</span>
         </div>
-        <p class="zone-help" id="zoneHelp">Select a location to enable “Record pitch”.</p>
+        <p class="zone-help" id="zoneHelp">Location is optional — tap the zone if you want to chart it.</p>
 
         <div class="legend">
           <span><i class="legend-dot fastball"></i>Fastball</span>
@@ -138,7 +138,7 @@
           </div>
         </div>
 
-        <button class="button button-primary record" id="recordButton" disabled>Record pitch <span>→</span></button>
+        <button class="button button-primary record" id="recordButton">Record pitch <span>→</span></button>
       </aside>
     </section>
 
@@ -231,7 +231,7 @@
         <label><span>Batter</span><input id="editBatterName" maxlength="50"></label>
         <label><span>Pitch type</span><select id="editPitchType"><option>Four-seam</option><option>Two-seam</option><option>Cutter</option><option>Slider</option><option>Curveball</option><option>Changeup</option><option>Splitter</option><option>Other</option></select></label>
         <label><span>Velocity</span><select id="editVelocity"><option value="">Not recorded</option></select></label>
-        <label><span>Result</span><select id="editResult"><option>Ball</option><option>Called strike</option><option>Swinging strike</option><option>Foul</option><option>Strikeout</option><option>Single</option><option>Double</option><option>Triple</option><option>Home run</option><option value="In play - out">Out</option></select></label>
+        <label><span>Result</span><select id="editResult"><option value="Not recorded">Not recorded</option><option>Ball</option><option>Called strike</option><option>Swinging strike</option><option>Foul</option><option>Strikeout</option><option value="In play">In play — result unknown</option><option>Single</option><option>Double</option><option>Triple</option><option>Home run</option><option value="In play - out">Out</option></select></label>
         <label id="editContactWrap"><span>Contact</span><select id="editContact"><option value="">Choose contact</option><option>Fly ball</option><option>Ground ball</option><option>Line drive</option><option>Pop up</option></select></label>
         <label id="editOutWrap"><span>Out position</span><select id="editOutPosition"><option value="">Choose position</option><option>P</option><option>C</option><option>1B</option><option>2B</option><option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option></select></label>
         <label class="edit-note"><span>Note</span><input id="editNote" maxlength="80"></label>

@@ -31,6 +31,7 @@ Host this folder on an HTTPS website once, open it in Safari, and choose **Share
 - Tap any pitch-history row to edit details, outcome, and location with automatic game-state recalculation
 - Lineup renames automatically propagate to that team's existing pitch history
 - Stable player IDs keep pitcher and batter history linked through later roster edits
+- Free-entry mode allows pitches without location or other optional details
 - Automatic ball-strike count updates
 - Automatic strikeout/in-play outs and half-inning advancement after three outs
 - Pitch history and game summary

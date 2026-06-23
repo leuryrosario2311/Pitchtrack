@@ -160,6 +160,7 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
 .edit-section-label, .edit-pitch-fields label > span { display: block; margin-bottom: 7px; color: #43504a; font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .edit-zone { position: relative; width: 100%; aspect-ratio: 1.12; overflow: hidden; cursor: crosshair; background: #f2efe5; border: 1px solid var(--line); border-radius: 9px; }
 .edit-zone-marker { position: absolute; width: 22px; height: 22px; margin: -11px; background: var(--red); border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 5px #0005; pointer-events: none; }
+.edit-zone-marker[hidden] { display: none; }
 .edit-pitch-layout section > small { display: block; margin-top: 7px; color: var(--muted); text-align: center; }
 .edit-pitch-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; }
 .edit-pitch-fields label input, .edit-pitch-fields label select { width: 100%; min-height: 42px; padding: 9px 10px; background: white; border: 1px solid var(--line); border-radius: 7px; outline: none; }
