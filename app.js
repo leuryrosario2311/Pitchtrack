@@ -420,6 +420,17 @@ function resultWouldChangeInning(result) {
   return state.outs === 2 && resultWouldRecordOut(result);
 }
 
+function confirmBatterAdvance(outcome, battingTeam) {
+  if (!outcome.plateAppearanceEnded) return true;
+  const order = state.lineups[battingTeam].batters.filter(p => p.name);
+  if (!order.length) return true;
+  const currentIndex = order.findIndex(p => p.name === $('batter').value);
+  const nextBatter = order[(currentIndex >= 0 ? currentIndex + 1 : state.battingIndexes[battingTeam] + 1) % order.length];
+  const currentName = $('batter').value || 'current batter';
+  const nextName = nextBatter?.name || 'next batter';
+  return confirm(`This plate appearance is over (${outcome.label || 'result recorded'}). Move from ${currentName} to ${nextName}?`);
+}
+
 let editingPitchIndex = -1;
 let editingPitchLocation = null;
 function pitchGroupForType(type) {
@@ -581,7 +592,9 @@ $('recordButton').addEventListener('click', () => {
   };
   state.pitches.push(pitch);
   const outcome = advanceGame(pitch.result);
-  if (outcome.plateAppearanceEnded) moveToNextBatter(false, battingTeam);
+  if (confirmBatterAdvance(outcome, battingTeam)) {
+    if (outcome.plateAppearanceEnded) moveToNextBatter(false, battingTeam);
+  }
   if (outcome.inningChanged) syncPlayersForHalf();
   state.location = null; state.result = null; state.contactType = null; state.outLocation = ''; state.errorLocation = '';
   $('crosshair').classList.remove('visible');

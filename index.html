@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=16">
+  <link rel="stylesheet" href="styles.css?v=18">
 </head>
 <body>
   <header class="topbar">
@@ -175,6 +175,7 @@
       <div class="panel-heading log-heading">
         <div><p class="eyebrow">Game log</p><h2>Pitch history</h2></div>
         <div class="panel-tools">
+          <button class="toggle-panel danger-toggle" id="resetButton" type="button" disabled>Reset game</button>
           <button class="toggle-panel" id="toggleHistory" type="button" aria-expanded="true">Hide history</button>
           <div class="summary" id="summary"><span><b>0</b> pitches</span><span><b>—</b> avg mph</span><span><b>0%</b> strikes</span></div>
         </div>
@@ -187,7 +188,7 @@
         </table>
         <div class="empty-state" id="emptyState"><span>⚾</span><p>No pitches recorded yet.</p><small>Your game story will appear here, one pitch at a time.</small></div>
       </div>
-      <div class="log-actions"><button class="text-button" id="undoButton" disabled>↶ Undo last pitch</button><button class="text-button danger" id="resetButton" disabled>Reset game</button></div>
+      <div class="log-actions"><button class="text-button" id="undoButton" disabled>↶ Undo last pitch</button></div>
       </div>
     </section>
   </main>
@@ -276,7 +277,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=16"></script>
-  <script src="app.js?v=16"></script>
+  <script src="pdf-export.js?v=18"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>

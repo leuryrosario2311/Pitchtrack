@@ -43,6 +43,9 @@ main { width: min(1400px, 94vw); margin: 24px auto 50px; }
 .panel-tools { display: flex; align-items: flex-start; justify-content: flex-end; gap: 10px; }
 .toggle-panel { min-height: 34px; padding: 8px 10px; color: var(--green); background: #edf1d4; border: 1px solid #d4d9c0; border-radius: 7px; font-size: 11px; font-weight: 900; white-space: nowrap; }
 .toggle-panel:hover { background: var(--lime); border-color: var(--green-2); }
+.toggle-panel.danger-toggle { color: #9f3b32; background: #fff7f5; border-color: #f0c7c0; }
+.toggle-panel.danger-toggle:hover { background: #ffe9e4; border-color: #d99488; }
+.toggle-panel:disabled { opacity: .38; cursor: not-allowed; }
 .zone-body[hidden], .history-body[hidden] { display: none; }
 .eyebrow { margin: 0 0 4px; color: var(--green-2); font-size: 10px; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }
 h1, h2 { margin: 0; font-family: Georgia, "Times New Roman", serif; line-height: 1.1; }
