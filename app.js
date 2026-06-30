@@ -8,11 +8,12 @@ const createLineup = () => ({
 });
 
 const state = {
-  pitches: [], location: null, pitchType: 'Four-seam', pitchGroup: 'fastball', result: null, contactType: null, outLocation: '',
+  pitches: [], location: null, pitchType: 'Four-seam', pitchGroup: 'fastball', result: null, contactType: null, outLocation: '', errorLocation: '',
   balls: 0, strikes: 0, outs: 0,
   lineups: {home: createLineup(), away: createLineup()},
   battingIndexes: {home: 0, away: 0},
-  selectedPitchers: {home: '', away: ''}
+  selectedPitchers: {home: '', away: ''},
+  uiHidden: {zone: false, history: false}
 };
 let editingTeam = 'away';
 let lineupSnapshot = null;
@@ -315,11 +316,13 @@ choose('pitchTypes', 'button', (button) => {
 });
 choose('basicResults', 'button', (button) => {
   state.result = button.dataset.value;
-  state.contactType = null; state.outLocation = '';
+  state.contactType = null; state.outLocation = ''; state.errorLocation = '';
   $('contactTypes').querySelectorAll('button').forEach(item => item.classList.remove('selected'));
   $('inPlayResults').querySelectorAll('button').forEach(item => item.classList.remove('selected'));
   $('outPositions').querySelectorAll('button').forEach(item => item.classList.remove('selected'));
+  $('errorPositions').querySelectorAll('button').forEach(item => item.classList.remove('selected'));
   $('outLocationWrap').hidden = true;
+  $('errorLocationWrap').hidden = true;
   updateRecordButton();
 });
 choose('contactTypes', 'button', (button) => {
@@ -332,11 +335,15 @@ choose('inPlayResults', 'button', (button) => {
   state.result = button.dataset.value;
   $('basicResults').querySelectorAll('button').forEach(item => item.classList.remove('selected'));
   const isOut = state.result === 'In play - out';
+  const isError = state.result === 'Error';
   $('outLocationWrap').hidden = !isOut;
+  $('errorLocationWrap').hidden = !isError;
   if (!isOut) { state.outLocation = ''; $('outPositions').querySelectorAll('button').forEach(item => item.classList.remove('selected')); }
+  if (!isError) { state.errorLocation = ''; $('errorPositions').querySelectorAll('button').forEach(item => item.classList.remove('selected')); }
   updateRecordButton();
 });
 choose('outPositions', 'button', (button) => { state.outLocation = button.dataset.value; updateRecordButton(); });
+choose('errorPositions', 'button', (button) => { state.errorLocation = button.dataset.value; updateRecordButton(); });
 
 $('outButtons').addEventListener('click', (event) => {
   const button = event.target.closest('button');
@@ -349,6 +356,29 @@ $('outButtons').addEventListener('click', (event) => {
 function updateOutButtons() {
   $('outButtons').querySelectorAll('button').forEach((button) => button.classList.toggle('active', Number(button.dataset.outs) === state.outs));
 }
+
+function setPanelVisibility(panel, hidden) {
+  state.uiHidden[panel] = hidden;
+  const body = panel === 'zone' ? $('zoneBody') : $('historyBody');
+  const button = panel === 'zone' ? $('toggleZone') : $('toggleHistory');
+  body.hidden = hidden;
+  button.textContent = hidden ? `Show ${panel === 'zone' ? 'zone' : 'history'}` : `Hide ${panel === 'zone' ? 'zone' : 'history'}`;
+  button.setAttribute('aria-expanded', String(!hidden));
+  save();
+}
+
+$('toggleZone').addEventListener('click', () => setPanelVisibility('zone', !state.uiHidden.zone));
+$('toggleHistory').addEventListener('click', () => setPanelVisibility('history', !state.uiHidden.history));
+
+$('ballCount').closest('.count-editor').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-count-kind]');
+  if (!button) return;
+  const kind = button.dataset.countKind;
+  const max = kind === 'balls' ? 3 : 2;
+  state[kind] = Math.max(0, Math.min(max, state[kind] + Number(button.dataset.countStep)));
+  render();
+  save();
+});
 
 $('zoneStage').addEventListener('click', (event) => {
   const rect = $('zoneStage').getBoundingClientRect();
@@ -376,9 +406,18 @@ function locationName(location) {
   return `${vertical} ${horizontal}`;
 }
 
-function isInPlayResult(result) { return ['In play', 'Single', 'Double', 'Triple', 'Home run', 'In play - out'].includes(result); }
+function isInPlayResult(result) { return ['In play', 'Single', 'Double', 'Triple', 'Home run', 'In play - out', 'Error'].includes(result); }
 function updateRecordButton() {
   $('recordButton').disabled = false;
+}
+
+function resultWouldRecordOut(result) {
+  if (result === 'Strikeout' || result === 'In play - out') return true;
+  return ['Called strike', 'Swinging strike'].includes(result) && state.strikes + 1 >= 3;
+}
+
+function resultWouldChangeInning(result) {
+  return state.outs === 2 && resultWouldRecordOut(result);
 }
 
 let editingPitchIndex = -1;
@@ -395,8 +434,41 @@ function updateEditPitchFields() {
   const inPlay = isInPlayResult(result);
   $('editContactWrap').hidden = !inPlay;
   $('editOutWrap').hidden = result !== 'In play - out';
+  $('editErrorWrap').hidden = result !== 'Error';
   if (!inPlay) $('editContact').value = '';
   if (result !== 'In play - out') $('editOutPosition').value = '';
+  if (result !== 'Error') $('editErrorPosition').value = '';
+}
+
+function playerLabel(player, fallback) {
+  const number = player.number ? `#${player.number} ` : '';
+  const details = [player.position, player.throws ? `${player.throws}HP` : ''].filter(Boolean).join(' · ');
+  return `${number}${player.name || fallback}${details ? ` · ${details}` : ''}`;
+}
+
+function setPlayerSelectOptions(selectId, players, currentName, currentId, fallbackLabel) {
+  const select = $(selectId);
+  const activePlayers = players.filter(player => player.name);
+  const hasCurrent = activePlayers.some(player => (currentId && player.id === currentId) || player.name === currentName);
+  select.innerHTML = `<option value="">—</option>${activePlayers.map(player => `<option value="${escapeHtml(player.id)}">${escapeHtml(playerLabel(player, fallbackLabel))}</option>`).join('')}`;
+  if (currentName && currentName !== '—' && !hasCurrent) {
+    select.add(new Option(`${currentName} (not in lineup)`, `name:${currentName}`));
+  }
+  const selected = activePlayers.find(player => (currentId && player.id === currentId) || player.name === currentName);
+  select.value = selected?.id || (currentName && currentName !== '—' ? `name:${currentName}` : '');
+}
+
+function populateEditPlayerSelects(pitch) {
+  const battingTeam = pitch.half === 'Top' ? 'away' : 'home';
+  const fieldingTeam = battingTeam === 'away' ? 'home' : 'away';
+  setPlayerSelectOptions('editPitcherName', state.lineups[fieldingTeam].pitchers, pitch.pitcher, pitch.pitcherId, 'Pitcher');
+  setPlayerSelectOptions('editBatterName', state.lineups[battingTeam].batters, pitch.batter, pitch.batterId, 'Player');
+}
+
+function selectedLineupPlayer(selectId, collection) {
+  const value = $(selectId).value;
+  if (!value) return null;
+  return collection.find(player => player.id === value) || null;
 }
 
 function openPitchEditor(number) {
@@ -405,14 +477,14 @@ function openPitchEditor(number) {
   const pitch = state.pitches[editingPitchIndex];
   editingPitchLocation = pitch.location ? {...pitch.location} : null;
   $('editPitchNumber').textContent = `#${pitch.number}`;
-  $('editPitcherName').value = pitch.pitcher === '—' ? '' : pitch.pitcher;
-  $('editBatterName').value = pitch.batter === '—' ? '' : pitch.batter;
+  populateEditPlayerSelects(pitch);
   $('editPitchType').value = pitch.type;
   $('editVelocity').value = pitch.velocity || '';
   const editableResult = pitch.result === 'In play - hit' ? 'Single' : pitch.result;
   $('editResult').value = [...$('editResult').options].some(option => option.value === editableResult) ? editableResult : 'Not recorded';
   $('editContact').value = pitch.contactType || '';
   $('editOutPosition').value = pitch.outLocation || '';
+  $('editErrorPosition').value = pitch.errorLocation || '';
   $('editNote').value = pitch.note || '';
   $('editZoneMarker').hidden = !editingPitchLocation;
   if (editingPitchLocation) {
@@ -460,25 +532,28 @@ $('saveEditPitch').addEventListener('click', () => {
   if (editingPitchIndex < 0) return;
   const result = $('editResult').value;
   const pitch = state.pitches[editingPitchIndex];
-  pitch.pitcher = $('editPitcherName').value.trim() || '—';
-  pitch.batter = $('editBatterName').value.trim() || '—';
+  const battingTeam = pitch.half === 'Top' ? 'away' : 'home';
+  const fieldingTeam = battingTeam === 'away' ? 'home' : 'away';
+  const selectedPitcher = selectedLineupPlayer('editPitcherName', state.lineups[fieldingTeam].pitchers);
+  const selectedBatter = selectedLineupPlayer('editBatterName', state.lineups[battingTeam].batters);
+  const customPitcher = $('editPitcherName').value.startsWith('name:') ? $('editPitcherName').value.slice(5) : '';
+  const customBatter = $('editBatterName').value.startsWith('name:') ? $('editBatterName').value.slice(5) : '';
+  pitch.pitcher = selectedPitcher?.name || customPitcher || '—';
+  pitch.pitcherId = selectedPitcher?.id || '';
+  pitch.pitcherNumber = selectedPitcher?.number || '';
+  pitch.batter = selectedBatter?.name || customBatter || '—';
+  pitch.batterId = selectedBatter?.id || '';
+  pitch.batterNumber = selectedBatter?.number || '';
+  pitch.bats = selectedBatter?.bats || pitch.bats;
   pitch.type = $('editPitchType').value;
   pitch.group = pitchGroupForType(pitch.type);
   pitch.velocity = $('editVelocity').value;
   pitch.result = result;
   pitch.contactType = isInPlayResult(result) ? $('editContact').value : '';
   pitch.outLocation = result === 'In play - out' ? $('editOutPosition').value : '';
+  pitch.errorLocation = result === 'Error' ? $('editErrorPosition').value : '';
   pitch.note = $('editNote').value.trim();
   pitch.location = editingPitchLocation ? {...editingPitchLocation} : null;
-  const allBatters = [...state.lineups.home.batters, ...state.lineups.away.batters];
-  const allPitchers = [...state.lineups.home.pitchers, ...state.lineups.away.pitchers];
-  const batter = allBatters.find(player => player.name === pitch.batter);
-  const pitcher = allPitchers.find(player => player.name === pitch.pitcher);
-  pitch.batterNumber = batter?.number || '';
-  pitch.pitcherNumber = pitcher?.number || '';
-  pitch.batterId = batter?.id || '';
-  pitch.pitcherId = pitcher?.id || '';
-  if (batter) pitch.bats = batter.bats;
   replayGameState(); render(); save(); $('editPitchDialog').close(); showToast(`Pitch #${pitch.number} updated`);
 });
 
@@ -489,6 +564,10 @@ $('recordButton').addEventListener('click', () => {
   const pitcherPlayer = state.lineups[fieldingTeam].pitchers.find(player => player.name === $('pitcher').value);
   const recordedAt = new Date();
   const recordedResult = state.result || (state.contactType ? 'In play' : 'Not recorded');
+  if (resultWouldChangeInning(recordedResult) && !confirm('This pitch will make 3 outs and move to the next half inning. Continue?')) {
+    showToast('Pitch not recorded');
+    return;
+  }
   const pitch = {
     number: state.pitches.length + 1, inning: $('inning').value, half: $('half').value,
     time: recordedAt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}),
@@ -497,18 +576,20 @@ $('recordButton').addEventListener('click', () => {
     pitcher: $('pitcher').value.trim() || '—', pitcherId: pitcherPlayer?.id || '', pitcherNumber: pitcherPlayer?.number || '',
     batter: $('batter').value.trim() || '—', batterId: batterPlayer?.id || '', batterNumber: batterPlayer?.number || '', bats: $('bats').value,
     type: state.pitchType, group: state.pitchGroup, velocity: $('velocity').value || '',
-    result: recordedResult, contactType: state.contactType || '', outLocation: state.outLocation || '',
+    result: recordedResult, contactType: state.contactType || '', outLocation: state.outLocation || '', errorLocation: state.errorLocation || '',
     note: $('note').value.trim(), location: state.location ? {...state.location} : null
   };
   state.pitches.push(pitch);
   const outcome = advanceGame(pitch.result);
   if (outcome.plateAppearanceEnded) moveToNextBatter(false, battingTeam);
   if (outcome.inningChanged) syncPlayersForHalf();
-  state.location = null; state.result = null; state.contactType = null; state.outLocation = '';
+  state.location = null; state.result = null; state.contactType = null; state.outLocation = ''; state.errorLocation = '';
   $('crosshair').classList.remove('visible');
   ['basicResults','contactTypes','inPlayResults'].forEach(id => $(id).querySelectorAll('button').forEach(button => button.classList.remove('selected')));
   $('outPositions').querySelectorAll('button').forEach(button => button.classList.remove('selected'));
+  $('errorPositions').querySelectorAll('button').forEach(button => button.classList.remove('selected'));
   $('outLocationWrap').hidden = true;
+  $('errorLocationWrap').hidden = true;
   $('note').value = '';
   $('zoneHelp').textContent = 'Location is optional — tap the zone if you want to chart it.';
   updateRecordButton(); render(); save();
@@ -525,9 +606,10 @@ function advanceGame(result) {
   if (['Called strike', 'Swinging strike'].includes(result)) state.strikes++;
   if (result === 'Foul' && state.strikes < 2) state.strikes++;
   if (state.balls >= 4) { plateAppearanceEnded = true; label = 'Walk'; }
+  if (result === 'HBP') { plateAppearanceEnded = true; label = 'HBP'; }
   if (state.strikes >= 3 || result === 'Strikeout') { plateAppearanceEnded = true; outRecorded = true; label = 'Strikeout'; }
   if (result === 'In play - out') { plateAppearanceEnded = true; outRecorded = true; label = 'Out in play'; }
-  if (['Single', 'Double', 'Triple', 'Home run', 'In play - hit'].includes(result)) { plateAppearanceEnded = true; label = result === 'In play - hit' ? 'Hit' : result; }
+  if (['Single', 'Double', 'Triple', 'Home run', 'In play - hit', 'Error'].includes(result)) { plateAppearanceEnded = true; label = result === 'In play - hit' ? 'Hit' : result; }
   if (outRecorded) inningChanged = recordOut();
   if (plateAppearanceEnded) { state.balls = 0; state.strikes = 0; }
   return {plateAppearanceEnded, outRecorded, inningChanged, label};
@@ -550,26 +632,59 @@ function recordOut() {
 }
 
 function formatPitchResult(pitch) {
+  if (pitch.result === 'Error') return [pitch.result, pitch.contactType, pitch.errorLocation].filter(Boolean).join(' · ');
   if (!pitch.contactType) return pitch.result;
   const result = pitch.result === 'In play - out' ? 'Out' : pitch.result;
-  return [result, pitch.contactType, pitch.outLocation].filter(Boolean).join(' · ');
+  return [result, pitch.contactType, pitch.outLocation || pitch.errorLocation].filter(Boolean).join(' · ');
 }
 
 function render() {
   $('ballCount').textContent = state.balls; $('strikeCount').textContent = state.strikes;
+  $('zoneBody').hidden = state.uiHidden.zone;
+  $('historyBody').hidden = state.uiHidden.history;
+  $('toggleZone').textContent = state.uiHidden.zone ? 'Show zone' : 'Hide zone';
+  $('toggleHistory').textContent = state.uiHidden.history ? 'Show history' : 'Hide history';
+  $('toggleZone').setAttribute('aria-expanded', String(!state.uiHidden.zone));
+  $('toggleHistory').setAttribute('aria-expanded', String(!state.uiHidden.history));
   $('pitchNumber').textContent = `#${state.pitches.length + 1}`;
   $('emptyState').hidden = state.pitches.length > 0;
   $('undoButton').disabled = $('resetButton').disabled = state.pitches.length === 0;
   $('pitchMarkers').innerHTML = state.pitches.filter(pitch => pitch.location).map((pitch) => `<span class="pitch-marker ${pitch.group}" style="left:${pitch.location.x}%;top:${pitch.location.y}%" title="#${pitch.number} ${escapeHtml(pitch.type)} — ${escapeHtml(formatPitchResult(pitch))}">${pitch.number}</span>`).join('');
-  $('pitchLog').innerHTML = state.pitches.slice().reverse().map((pitch) => `<tr class="pitch-log-row" data-pitch-number="${pitch.number}" tabindex="0" title="Tap to edit pitch #${pitch.number}"><td><b>${pitch.number}</b></td><td>${pitch.half[0]} ${pitch.inning}</td><td>${pitch.count}</td><td>${pitch.pitcherNumber ? `#${escapeHtml(pitch.pitcherNumber)} ` : ''}${escapeHtml(pitch.pitcher)}</td><td>${pitch.batterNumber ? `#${escapeHtml(pitch.batterNumber)} ` : ''}${escapeHtml(pitch.batter)}</td><td>${escapeHtml(pitch.type)}</td><td>${pitch.velocity ? `${escapeHtml(pitch.velocity)} mph` : '—'}</td><td>${escapeHtml(formatPitchResult(pitch))}</td><td>${locationName(pitch.location)}</td></tr>`).join('');
+  $('pitchLog').innerHTML = state.pitches.slice().reverse().map((pitch) => `<tr class="pitch-log-row" data-pitch-number="${pitch.number}" tabindex="0" title="Tap to edit pitch #${pitch.number}"><td><b>${pitch.number}</b></td><td>${pitch.half[0]} ${pitch.inning}</td><td>${pitch.count}</td><td>${pitch.pitcherNumber ? `#${escapeHtml(pitch.pitcherNumber)} ` : ''}${escapeHtml(pitch.pitcher)}</td><td>${pitch.batterNumber ? `#${escapeHtml(pitch.batterNumber)} ` : ''}${escapeHtml(pitch.batter)}</td><td>${escapeHtml(pitch.type)}</td><td>${pitch.velocity ? `${escapeHtml(pitch.velocity)} mph` : '—'}</td><td>${escapeHtml(formatPitchResult(pitch))}</td><td>${locationName(pitch.location)}</td><td><button class="delete-pitch" data-delete-pitch="${pitch.number}" type="button" title="Delete pitch #${pitch.number}">Delete</button></td></tr>`).join('');
   const velocities = state.pitches.map(p => Number(p.velocity)).filter(Boolean);
   const avg = velocities.length ? Math.round(velocities.reduce((a,b) => a+b, 0) / velocities.length) : '—';
-  const strikes = state.pitches.filter(p => ['Called strike','Swinging strike','Foul','Strikeout','In play - hit'].includes(p.result) || isInPlayResult(p.result)).length;
+  const strikes = state.pitches.filter(p => ['Called strike','Swinging strike','Foul','Strikeout','In play - hit'].includes(p.result) || ['Single','Double','Triple','Home run','In play - out'].includes(p.result)).length;
   const rate = state.pitches.length ? Math.round(strikes / state.pitches.length * 100) : 0;
   $('summary').innerHTML = `<span><b>${state.pitches.length}</b> pitches</span><span><b>${avg}</b> avg mph</span><span><b>${rate}%</b> strikes</span>`;
 }
 
+function renumberPitches() {
+  state.pitches.forEach((pitch, index) => { pitch.number = index + 1; });
+}
+
+function deletePitch(number) {
+  const index = state.pitches.findIndex(pitch => pitch.number === number);
+  if (index < 0 || !confirm(`Delete pitch #${number}? This will recalculate the game after that pitch.`)) return;
+  state.pitches.splice(index, 1);
+  renumberPitches();
+  if (state.pitches.length) replayGameState();
+  else {
+    state.balls = 0; state.strikes = 0; state.outs = 0;
+    $('inning').value = '1'; $('half').value = 'Top';
+    syncPlayersForHalf();
+  }
+  updateOutButtons();
+  render();
+  save();
+  showToast(`Pitch #${number} deleted`);
+}
+
 $('pitchLog').addEventListener('click', (event) => {
+  const deleteButton = event.target.closest('[data-delete-pitch]');
+  if (deleteButton) {
+    deletePitch(Number(deleteButton.dataset.deletePitch));
+    return;
+  }
   const row = event.target.closest('.pitch-log-row');
   if (row) openPitchEditor(Number(row.dataset.pitchNumber));
 });
@@ -598,8 +713,8 @@ $('resetButton').addEventListener('click', () => {
 
 $('exportButton').addEventListener('click', () => {
   if (!state.pitches.length) return showToast('Record a pitch before exporting');
-  const headers = ['Pitch #','Date','Time','Home Team','Away Team','Inning','Half','Outs','Count','Pitcher #','Pitcher','Batter #','Batter','Bats','Pitch Type','Velocity','Result','Contact Type','Out Position','Location','X %','Y %','Note'];
-  const rows = state.pitches.map(p => [p.number,$('gameDate').value,p.time || '',$('homeTeam').value,$('awayTeam').value,p.inning,p.half,p.outs,p.count,p.pitcherNumber || '',p.pitcher,p.batterNumber || '',p.batter,p.bats,p.type,p.velocity,p.result,p.contactType || '',p.outLocation || '',locationName(p.location),p.location ? p.location.x.toFixed(1) : '',p.location ? p.location.y.toFixed(1) : '',p.note]);
+  const headers = ['Pitch #','Date','Time','Home Team','Away Team','Inning','Half','Outs','Count','Pitcher #','Pitcher','Batter #','Batter','Bats','Pitch Type','Velocity','Result','Contact Type','Out Position','Error Position','Location','X %','Y %','Note'];
+  const rows = state.pitches.map(p => [p.number,$('gameDate').value,p.time || '',$('homeTeam').value,$('awayTeam').value,p.inning,p.half,p.outs,p.count,p.pitcherNumber || '',p.pitcher,p.batterNumber || '',p.batter,p.bats,p.type,p.velocity,p.result,p.contactType || '',p.outLocation || '',p.errorLocation || '',locationName(p.location),p.location ? p.location.x.toFixed(1) : '',p.location ? p.location.y.toFixed(1) : '',p.note]);
   const csv = [headers,...rows].map(row => row.map(value => `"${String(value).replaceAll('"','""')}"`).join(',')).join('\n');
   const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
   link.download = `pitch-chart-${$('gameDate').value || 'game'}.csv`; link.click(); URL.revokeObjectURL(link.href);
@@ -610,7 +725,7 @@ function escapeHtml(value) { const div = document.createElement('div'); div.text
 function showToast(message) { $('toast').textContent = message; $('toast').classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => $('toast').classList.remove('show'), 2200); }
 
 function save() {
-  const data = { pitches: state.pitches, balls: state.balls, strikes: state.strikes, outs: state.outs, lineups: state.lineups, battingIndexes: state.battingIndexes, selectedPitchers: state.selectedPitchers, fields: Object.fromEntries(fields.map(id => [id, $(id).value])) };
+  const data = { pitches: state.pitches, balls: state.balls, strikes: state.strikes, outs: state.outs, lineups: state.lineups, battingIndexes: state.battingIndexes, selectedPitchers: state.selectedPitchers, uiHidden: state.uiHidden, fields: Object.fromEntries(fields.map(id => [id, $(id).value])) };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
@@ -637,6 +752,7 @@ function load() {
     else if (data.lineup) state.lineups.away = data.lineup;
     if (data.battingIndexes) state.battingIndexes = data.battingIndexes;
     if (data.selectedPitchers) state.selectedPitchers = data.selectedPitchers;
+    if (data.uiHidden) state.uiHidden = {...state.uiHidden, ...data.uiHidden};
     ensurePlayerLinks();
     renderLineupOptions();
     fields.forEach(id => { if (data.fields?.[id] !== undefined) $(id).value = data.fields[id]; });

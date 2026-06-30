@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
   <header class="topbar">
@@ -54,9 +54,26 @@
       <article class="panel chart-panel">
         <div class="panel-heading">
           <div><p class="eyebrow">Pitch location</p><h1>Tap where it crossed the plate</h1></div>
-          <div class="count-badge"><span id="ballCount">0</span>–<span id="strikeCount">0</span></div>
+          <div class="panel-tools">
+          <button class="toggle-panel" id="toggleZone" type="button" aria-expanded="true">Hide zone</button>
+          <div class="count-badge count-editor" aria-label="Current ball and strike count">
+            <div class="count-control">
+              <span>B</span>
+              <button type="button" data-count-kind="balls" data-count-step="-1" aria-label="Remove one ball">−</button>
+              <b id="ballCount">0</b>
+              <button type="button" data-count-kind="balls" data-count-step="1" aria-label="Add one ball">+</button>
+            </div>
+            <div class="count-control">
+              <span>S</span>
+              <button type="button" data-count-kind="strikes" data-count-step="-1" aria-label="Remove one strike">−</button>
+              <b id="strikeCount">0</b>
+              <button type="button" data-count-kind="strikes" data-count-step="1" aria-label="Add one strike">+</button>
+            </div>
+          </div>
+          </div>
         </div>
 
+        <div class="zone-body" id="zoneBody">
         <div class="zone-wrap">
           <span class="batter-side left">LHB</span>
           <div class="zone-stage" id="zoneStage" role="button" tabindex="0" aria-label="Pitch location chart">
@@ -76,6 +93,7 @@
           <span><i class="legend-dot breaking"></i>Breaking</span>
           <span><i class="legend-dot offspeed"></i>Off-speed</span>
           <span><i class="legend-dot other"></i>Other</span>
+        </div>
         </div>
       </article>
 
@@ -106,7 +124,7 @@
           <div class="result-grid" id="basicResults">
             <button data-value="Ball">Ball</button><button data-value="Called strike">Called strike</button>
             <button data-value="Swinging strike">Swing & miss</button><button data-value="Foul">Foul</button>
-            <button data-value="Strikeout">Strikeout</button>
+            <button data-value="Strikeout">Strikeout</button><button data-value="HBP">HBP</button>
           </div>
         </fieldset>
 
@@ -123,13 +141,24 @@
           <div class="play-result-grid" id="inPlayResults">
             <button data-value="Single" title="Single" aria-label="H1 Single">H1</button><button data-value="Double" title="Double" aria-label="H2 Double">H2</button>
             <button data-value="Triple" title="Triple" aria-label="H3 Triple">H3</button><button data-value="Home run" title="Home run" aria-label="H4 Home run">H4</button>
-            <button data-value="In play - out">Out</button>
+            <button data-value="In play - out">Out</button><button data-value="Error">Error</button>
           </div>
         </fieldset>
 
         <div class="out-location" id="outLocationWrap" hidden>
           <span class="out-location-label">Where was the out?</span>
           <div class="position-grid" id="outPositions">
+            <button data-value="P" title="Pitcher">P</button><button data-value="C" title="Catcher">C</button>
+            <button data-value="1B" title="First base">1B</button><button data-value="2B" title="Second base">2B</button>
+            <button data-value="3B" title="Third base">3B</button><button data-value="SS" title="Shortstop">SS</button>
+            <button data-value="LF" title="Left field">LF</button><button data-value="CF" title="Center field">CF</button>
+            <button data-value="RF" title="Right field">RF</button>
+          </div>
+        </div>
+
+        <div class="out-location" id="errorLocationWrap" hidden>
+          <span class="out-location-label">Who made the error?</span>
+          <div class="position-grid" id="errorPositions">
             <button data-value="P" title="Pitcher">P</button><button data-value="C" title="Catcher">C</button>
             <button data-value="1B" title="First base">1B</button><button data-value="2B" title="Second base">2B</button>
             <button data-value="3B" title="Third base">3B</button><button data-value="SS" title="Shortstop">SS</button>
@@ -145,16 +174,21 @@
     <section class="panel log-panel">
       <div class="panel-heading log-heading">
         <div><p class="eyebrow">Game log</p><h2>Pitch history</h2></div>
-        <div class="summary" id="summary"><span><b>0</b> pitches</span><span><b>—</b> avg mph</span><span><b>0%</b> strikes</span></div>
+        <div class="panel-tools">
+          <button class="toggle-panel" id="toggleHistory" type="button" aria-expanded="true">Hide history</button>
+          <div class="summary" id="summary"><span><b>0</b> pitches</span><span><b>—</b> avg mph</span><span><b>0%</b> strikes</span></div>
+        </div>
       </div>
+      <div class="history-body" id="historyBody">
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>Inning</th><th>Count</th><th>Pitcher</th><th>Batter</th><th>Pitch</th><th>Velocity</th><th>Result</th><th>Location</th></tr></thead>
+          <thead><tr><th>#</th><th>Inning</th><th>Count</th><th>Pitcher</th><th>Batter</th><th>Pitch</th><th>Velocity</th><th>Result</th><th>Location</th><th>Action</th></tr></thead>
           <tbody id="pitchLog"></tbody>
         </table>
         <div class="empty-state" id="emptyState"><span>⚾</span><p>No pitches recorded yet.</p><small>Your game story will appear here, one pitch at a time.</small></div>
       </div>
       <div class="log-actions"><button class="text-button" id="undoButton" disabled>↶ Undo last pitch</button><button class="text-button danger" id="resetButton" disabled>Reset game</button></div>
+      </div>
     </section>
   </main>
 
@@ -227,13 +261,14 @@
         <small>Tap to move the pitch.</small>
       </section>
       <section class="edit-pitch-fields">
-        <label><span>Pitcher</span><input id="editPitcherName" maxlength="50"></label>
-        <label><span>Batter</span><input id="editBatterName" maxlength="50"></label>
+        <label><span>Pitcher</span><select id="editPitcherName"></select></label>
+        <label><span>Batter</span><select id="editBatterName"></select></label>
         <label><span>Pitch type</span><select id="editPitchType"><option>Four-seam</option><option>Two-seam</option><option>Cutter</option><option>Slider</option><option>Curveball</option><option>Changeup</option><option>Splitter</option><option>Other</option></select></label>
         <label><span>Velocity</span><select id="editVelocity"><option value="">Not recorded</option></select></label>
-        <label><span>Result</span><select id="editResult"><option value="Not recorded">Not recorded</option><option>Ball</option><option>Called strike</option><option>Swinging strike</option><option>Foul</option><option>Strikeout</option><option value="In play">In play — result unknown</option><option>Single</option><option>Double</option><option>Triple</option><option>Home run</option><option value="In play - out">Out</option></select></label>
+        <label><span>Result</span><select id="editResult"><option value="Not recorded">Not recorded</option><option>Ball</option><option>Called strike</option><option>Swinging strike</option><option>Foul</option><option>Strikeout</option><option>HBP</option><option value="In play">In play — result unknown</option><option>Single</option><option>Double</option><option>Triple</option><option>Home run</option><option value="In play - out">Out</option><option>Error</option></select></label>
         <label id="editContactWrap"><span>Contact</span><select id="editContact"><option value="">Choose contact</option><option>Fly ball</option><option>Ground ball</option><option>Line drive</option><option>Pop up</option></select></label>
         <label id="editOutWrap"><span>Out position</span><select id="editOutPosition"><option value="">Choose position</option><option>P</option><option>C</option><option>1B</option><option>2B</option><option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option></select></label>
+        <label id="editErrorWrap"><span>Error position</span><select id="editErrorPosition"><option value="">Choose position</option><option>P</option><option>C</option><option>1B</option><option>2B</option><option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option></select></label>
         <label class="edit-note"><span>Note</span><input id="editNote" maxlength="80"></label>
       </section>
     </div>
@@ -241,7 +276,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=12"></script>
-  <script src="app.js?v=12"></script>
+  <script src="pdf-export.js?v=16"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>
