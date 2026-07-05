@@ -51,14 +51,17 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 
 function buildLineupEditor() {
+  updateLineupLabels();
   const lineup = state.lineups[editingTeam];
   $('battingLineup').innerHTML = lineup.batters.map((player, index) => `
-    <div class="lineup-row batting" data-player-id="${player.id}">
+    <div class="lineup-row batting" data-player-id="${player.id}" data-substituted-for="${escapeHtml(player.substitutedFor || '')}" data-substituted-for-number="${escapeHtml(player.substitutedForNumber || '')}" data-substituted-for-position="${escapeHtml(player.substitutedForPosition || '')}" data-substituted-for-bats="${escapeHtml(player.substitutedForBats || '')}" data-substitution-at="${escapeHtml(player.substitutionAt || '')}">
       <span class="order-number">${index + 1}</span>
-      <input class="lineup-name" data-kind="batter" data-index="${index}" value="${escapeHtml(player.name)}" placeholder="Player ${index + 1}" aria-label="Batter ${index + 1} name">
+      <div class="lineup-player-cell"><input class="lineup-name" data-kind="batter" data-index="${index}" value="${escapeHtml(player.name)}" placeholder="${escapeHtml(player.substitutedFor ? `Sub for ${player.substitutedFor}` : `Player ${index + 1}`)}" aria-label="Batter ${index + 1} name">${player.substitutedFor ? `<small>Sub for ${player.substitutedForNumber ? `#${escapeHtml(player.substitutedForNumber)} ` : ''}${escapeHtml(player.substitutedFor)}${player.substitutionAt ? ` · ${escapeHtml(player.substitutionAt)}` : ''}</small>` : ''}</div>
       <input class="lineup-number" data-index="${index}" value="${escapeHtml(player.number || '')}" placeholder="#" maxlength="3" inputmode="numeric" aria-label="Batter ${index + 1} jersey number">
       <select class="lineup-position" data-index="${index}" aria-label="Batter ${index + 1} position">${positionOptions(player.position)}</select>
       <select class="lineup-bats" data-index="${index}" aria-label="Batter ${index + 1} bats"><option ${player.bats === 'R' ? 'selected' : ''}>R</option><option ${player.bats === 'L' ? 'selected' : ''}>L</option><option ${player.bats === 'S' ? 'selected' : ''}>S</option></select>
+      <div class="lineup-sub-actions"><button class="sub-player" data-kind="batter" data-index="${index}" type="button" title="Substitute for ${escapeHtml(player.name || `Player ${index + 1}`)}">Sub</button>${player.substitutedFor ? `<button class="return-player" data-index="${index}" type="button" title="Return ${escapeHtml(player.substitutedFor)}">Return</button>` : ''}</div>
+      <div class="lineup-move"><button class="move-player" data-kind="batter" data-index="${index}" data-direction="-1" type="button" title="Move up" aria-label="Move batter ${index + 1} up" ${index === 0 ? 'disabled' : ''}>↑</button><button class="move-player" data-kind="batter" data-index="${index}" data-direction="1" type="button" title="Move down" aria-label="Move batter ${index + 1} down" ${index === lineup.batters.length - 1 ? 'disabled' : ''}>↓</button></div>
       <button class="remove-player" data-kind="batter" data-index="${index}" type="button" title="Remove ${escapeHtml(player.name || `Player ${index + 1}`)}" aria-label="Remove batter ${index + 1}">×</button>
     </div>`).join('');
   $('pitchingStaff').innerHTML = lineup.pitchers.map((player, index) => `
@@ -79,7 +82,8 @@ function positionOptions(selected = '') {
 
 function readLineupEditor() {
   state.lineups[editingTeam].batters = [...$('battingLineup').querySelectorAll('.lineup-row')].map((row) => ({
-    id: row.dataset.playerId, name: row.querySelector('.lineup-name').value.trim(), number: row.querySelector('.lineup-number').value.trim(), position: row.querySelector('.lineup-position').value.trim().toUpperCase(), bats: row.querySelector('.lineup-bats').value
+    id: row.dataset.playerId, name: row.querySelector('.lineup-name').value.trim(), number: row.querySelector('.lineup-number').value.trim(), position: row.querySelector('.lineup-position').value.trim().toUpperCase(), bats: row.querySelector('.lineup-bats').value,
+    substitutedFor: row.dataset.substitutedFor || '', substitutedForNumber: row.dataset.substitutedForNumber || '', substitutedForPosition: row.dataset.substitutedForPosition || '', substitutedForBats: row.dataset.substitutedForBats || '', substitutionAt: row.dataset.substitutionAt || ''
   }));
   state.lineups[editingTeam].pitchers = [...$('pitchingStaff').querySelectorAll('.lineup-row')].map((row) => ({
     id: row.dataset.playerId, name: row.querySelector('.lineup-name').value.trim(), number: row.querySelector('.lineup-number').value.trim(), throws: row.querySelector('.lineup-throws').value
@@ -100,11 +104,26 @@ function renderLineupOptions() {
 }
 
 function capitalize(value) { return value[0].toUpperCase() + value.slice(1); }
+function teamDisplayName(team) {
+  const value = $(team === 'home' ? 'homeTeam' : 'awayTeam').value.trim();
+  return value || `${capitalize(team)} Team`;
+}
+
+function updateLineupLabels() {
+  $('teamTabs').querySelectorAll('.team-tab').forEach((button) => {
+    const label = button.querySelector('span').outerHTML;
+    button.innerHTML = `${label} ${escapeHtml(teamDisplayName(button.dataset.team))}`;
+  });
+  const teamName = teamDisplayName(editingTeam);
+  $('lineupDialogTitle').textContent = `${teamName} Lineup`;
+  $('battingLineupTitle').textContent = `${teamName} batting order`;
+  $('pitchingStaffTitle').textContent = `${teamName} pitching staff`;
+}
 
 function updateLineupCount() {
   const names = $('lineupDialog').querySelectorAll('.lineup-name');
   const count = [...names].filter(input => input.value.trim()).length;
-  const teamName = `${capitalize(editingTeam)} Team`;
+  const teamName = teamDisplayName(editingTeam);
   $('lineupCount').textContent = count ? `${teamName} · ${count} player${count === 1 ? '' : 's'} ready` : `${teamName} · No players added`;
 }
 
@@ -155,6 +174,73 @@ $('addPitcherRow').addEventListener('click', () => {
   $('pitchingStaff').querySelector('.lineup-row:last-child .lineup-name').focus();
 });
 $('lineupDialog').addEventListener('click', (event) => {
+  const returnButton = event.target.closest('.return-player');
+  if (returnButton) {
+    readLineupEditor();
+    const collection = state.lineups[editingTeam].batters;
+    const index = Number(returnButton.dataset.index);
+    const player = collection[index] || {};
+    const returningName = player.substitutedFor;
+    if (!returningName) return;
+    const currentName = player.name || `Player ${index + 1}`;
+    collection[index] = {
+      id: createPlayerId('batter'),
+      name: returningName,
+      number: player.substitutedForNumber || '',
+      position: player.substitutedForPosition || player.position || '',
+      bats: player.substitutedForBats || player.bats || 'R',
+      substitutedFor: currentName,
+      substitutedForNumber: player.number || '',
+      substitutedForPosition: player.position || '',
+      substitutedForBats: player.bats || '',
+      substitutionAt: `${$('half').value} ${$('inning').value}`
+    };
+    buildLineupEditor();
+    const row = $('battingLineup').querySelectorAll('.lineup-row')[index];
+    row?.scrollIntoView({block: 'nearest'});
+    row?.querySelector('.lineup-name')?.focus();
+    showToast(`${returningName} returned for ${currentName}`);
+    return;
+  }
+  const subButton = event.target.closest('.sub-player');
+  if (subButton) {
+    readLineupEditor();
+    const collection = state.lineups[editingTeam].batters;
+    const index = Number(subButton.dataset.index);
+    const oldPlayer = collection[index] || {};
+    collection[index] = {
+      id: createPlayerId('batter'),
+      name: '',
+      number: '',
+      position: oldPlayer.position || '',
+      bats: oldPlayer.bats || 'R',
+      substitutedFor: oldPlayer.name || '',
+      substitutedForNumber: oldPlayer.number || '',
+      substitutedForPosition: oldPlayer.position || '',
+      substitutedForBats: oldPlayer.bats || '',
+      substitutionAt: `${$('half').value} ${$('inning').value}`
+    };
+    buildLineupEditor();
+    const row = $('battingLineup').querySelectorAll('.lineup-row')[index];
+    row?.scrollIntoView({block: 'nearest'});
+    row?.querySelector('.lineup-name')?.focus();
+    showToast(`Type the substitute for ${oldPlayer.name || `Player ${index + 1}`}`);
+    return;
+  }
+  const moveButton = event.target.closest('.move-player');
+  if (moveButton) {
+    readLineupEditor();
+    const collection = moveButton.dataset.kind === 'batter' ? state.lineups[editingTeam].batters : state.lineups[editingTeam].pitchers;
+    const index = Number(moveButton.dataset.index);
+    const targetIndex = index + Number(moveButton.dataset.direction);
+    if (targetIndex < 0 || targetIndex >= collection.length) return;
+    [collection[index], collection[targetIndex]] = [collection[targetIndex], collection[index]];
+    buildLineupEditor();
+    const movedRow = $('battingLineup').querySelectorAll('.lineup-row')[targetIndex];
+    movedRow?.scrollIntoView({block: 'nearest'});
+    movedRow?.querySelector('.lineup-name')?.focus();
+    return;
+  }
   const button = event.target.closest('.remove-player');
   if (!button) return;
   readLineupEditor();
@@ -773,4 +859,8 @@ function load() {
   } catch (_) { localStorage.removeItem(STORAGE_KEY); }
 }
 fields.forEach(id => $(id).addEventListener('change', save));
+['homeTeam', 'awayTeam'].forEach(id => $(id).addEventListener('input', () => {
+  updateLineupLabels();
+  updateLineupCount();
+}));
 load(); renderLineupOptions(); render();

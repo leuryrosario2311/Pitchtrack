@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=18">
+  <link rel="stylesheet" href="styles.css?v=23">
 </head>
 <body>
   <header class="topbar">
@@ -195,7 +195,7 @@
 
   <dialog class="lineup-dialog" id="lineupDialog">
     <div class="dialog-heading">
-      <div><p class="eyebrow">Game roster</p><h2>Build your lineups</h2><p>Set the batting order and pitching staff for quick selection during the game.</p></div>
+      <div><p class="eyebrow">Game roster</p><h2 id="lineupDialogTitle">Away Lineup</h2><p>Set the batting order and pitching staff for quick selection during the game.</p></div>
       <button class="dialog-close" id="closeLineup" aria-label="Close lineup manager">×</button>
     </div>
     <div class="team-tabs" id="teamTabs" role="tablist" aria-label="Choose team lineup">
@@ -204,12 +204,12 @@
     </div>
     <div class="lineup-columns">
       <section>
-        <div class="lineup-title"><h3>Batting order</h3><div><button class="quick-fill" id="quickBatters" type="button">Quick fill</button><button class="add-player" id="addBatterRow" type="button">＋ Add player</button></div></div>
-        <div class="lineup-header batting"><span>Order</span><span>Player name</span><span>No.</span><span>Pos</span><span>Bats</span><span></span></div>
+        <div class="lineup-title"><h3 id="battingLineupTitle">Away batting order</h3><div><button class="quick-fill" id="quickBatters" type="button">Quick fill</button><button class="add-player" id="addBatterRow" type="button">＋ Add player</button></div></div>
+        <div class="lineup-header batting"><span>Order</span><span>Player name</span><span>No.</span><span>Pos</span><span>Bats</span><span>Sub</span><span>Move</span><span></span></div>
         <div class="lineup-list" id="battingLineup"></div>
       </section>
       <section>
-        <div class="lineup-title"><h3>Pitching staff</h3><div><button class="quick-fill" id="quickPitchers" type="button">Quick fill</button><button class="add-player" id="addPitcherRow" type="button">＋ Add pitcher</button></div></div>
+        <div class="lineup-title"><h3 id="pitchingStaffTitle">Away pitching staff</h3><div><button class="quick-fill" id="quickPitchers" type="button">Quick fill</button><button class="add-player" id="addPitcherRow" type="button">＋ Add pitcher</button></div></div>
         <div class="lineup-header pitching"><span>#</span><span>Pitcher name</span><span>No.</span><span>Throws</span><span></span></div>
         <div class="lineup-list" id="pitchingStaff"></div>
       </section>
@@ -277,7 +277,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=18"></script>
-  <script src="app.js?v=18"></script>
+  <script src="pdf-export.js?v=23"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>
