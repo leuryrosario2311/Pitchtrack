@@ -166,6 +166,19 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
 .pdf-button:hover { background: var(--lime); }
 .rename-dialog { width: min(430px,92vw); padding: 0; color: var(--ink); background: var(--card); border: 0; border-radius: 14px; box-shadow: 0 28px 80px rgba(0,0,0,.3); }
 .rename-dialog::backdrop { background: rgba(8,27,20,.7); backdrop-filter: blur(3px); }
+.games-dialog { width: min(620px,94vw); padding: 0; color: var(--ink); background: var(--card); border: 0; border-radius: 14px; box-shadow: 0 28px 80px rgba(0,0,0,.3); }
+.games-dialog::backdrop { background: rgba(8,27,20,.7); backdrop-filter: blur(3px); }
+.games-body { display: grid; gap: 14px; max-height: min(62vh,560px); padding: 20px 28px; overflow-y: auto; }
+.active-game-card, .game-row { display: grid; gap: 4px; padding: 13px 14px; background: #f5f3eb; border: 1px solid var(--line); border-radius: 10px; }
+.active-game-card span, .game-row small { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.active-game-card strong, .game-row strong { color: var(--green); font-family: Georgia, serif; font-size: 20px; font-weight: 600; }
+.games-list { display: grid; gap: 8px; }
+.game-row { grid-template-columns: minmax(0,1fr) auto; align-items: center; }
+.game-row-actions { display: flex; gap: 6px; }
+.game-action { min-height: 33px; padding: 0 10px; color: var(--green); background: white; border: 1px solid var(--line); border-radius: 7px; font-size: 10px; font-weight: 900; }
+.game-action:hover { color: white; background: var(--green-2); border-color: var(--green-2); }
+.game-action.danger { color: #9f3b32; background: #fff7f5; border-color: #f0c7c0; }
+.game-action.danger:hover { color: white; background: #9f3b32; border-color: #9f3b32; }
 .dialog-heading.compact { padding-bottom: 17px; }
 .rename-body { padding: 22px 28px; }
 .rename-field span { display: block; margin-bottom: 7px; color: #43504a; font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }

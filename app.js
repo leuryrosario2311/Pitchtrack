@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'pitchtrack-game-v1';
+const GAMES_KEY = 'pitchtrack-games-v1';
 const $ = (id) => document.getElementById(id);
 let playerIdSeed = 0;
 const createPlayerId = (kind) => `${kind}-${Date.now().toString(36)}-${++playerIdSeed}`;
@@ -17,6 +18,8 @@ const state = {
 };
 let editingTeam = 'away';
 let lineupSnapshot = null;
+let activeGameId = '';
+let savedGames = [];
 
 const fields = ['homeTeam', 'awayTeam', 'gameDate', 'inning', 'half', 'pitcher', 'batter', 'bats'];
 const today = new Date();
@@ -25,6 +28,93 @@ for (let i = 1; i <= 12; i++) $('inning').add(new Option(i, i));
 for (let mph = 110; mph >= 30; mph--) {
   $('velocity').add(new Option(`${mph} mph`, mph));
   $('editVelocity').add(new Option(`${mph} mph`, mph));
+}
+
+function clone(value) { return JSON.parse(JSON.stringify(value)); }
+function todayValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+}
+
+function createGameId() { return `game-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
+
+function blankGameData() {
+  return {
+    pitches: [], balls: 0, strikes: 0, outs: 0,
+    lineups: {home: createLineup(), away: createLineup()},
+    battingIndexes: {home: 0, away: 0},
+    selectedPitchers: {home: '', away: ''},
+    uiHidden: clone(state.uiHidden),
+    fields: {homeTeam: '', awayTeam: '', gameDate: todayValue(), inning: '1', half: 'Top', pitcher: '', batter: '', bats: 'R'}
+  };
+}
+
+function currentGameData() {
+  return {
+    pitches: state.pitches, balls: state.balls, strikes: state.strikes, outs: state.outs,
+    lineups: state.lineups, battingIndexes: state.battingIndexes, selectedPitchers: state.selectedPitchers,
+    uiHidden: state.uiHidden,
+    fields: Object.fromEntries(fields.map(id => [id, $(id).value]))
+  };
+}
+
+function gameTitle(data = currentGameData()) {
+  const home = data.fields?.homeTeam?.trim() || 'Home';
+  const away = data.fields?.awayTeam?.trim() || 'Away';
+  const date = data.fields?.gameDate || todayValue();
+  return `${away} at ${home} · ${date}`;
+}
+
+function applyGameData(data) {
+  state.pitches = data.pitches || [];
+  state.balls = data.balls || 0;
+  state.strikes = data.strikes || 0;
+  state.outs = data.outs || 0;
+  state.lineups = data.lineups || {home: createLineup(), away: createLineup()};
+  state.battingIndexes = data.battingIndexes || {home: 0, away: 0};
+  state.selectedPitchers = data.selectedPitchers || {home: '', away: ''};
+  state.uiHidden = {...state.uiHidden, ...(data.uiHidden || {})};
+  fields.forEach(id => { if (data.fields?.[id] !== undefined) $(id).value = data.fields[id]; });
+  if (!$('inning').value) $('inning').value = '1';
+  if (!$('gameDate').value) $('gameDate').value = todayValue();
+  ensurePlayerLinks();
+  renderLineupOptions();
+  updateOutButtons();
+  syncPlayersForHalf();
+  updateLineupLabels();
+  render();
+}
+
+function updateActiveGameRecord() {
+  if (!activeGameId) activeGameId = createGameId();
+  const data = currentGameData();
+  const existing = savedGames.find(game => game.id === activeGameId);
+  const record = {id: activeGameId, title: gameTitle(data), updatedAt: new Date().toISOString(), pitches: data.pitches.length, data};
+  if (existing) Object.assign(existing, record);
+  else savedGames.unshift(record);
+}
+
+function persistGames() {
+  updateActiveGameRecord();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(currentGameData()));
+  localStorage.setItem(GAMES_KEY, JSON.stringify({activeGameId, games: savedGames}));
+  renderGamesList();
+}
+
+function renderGamesList() {
+  if (!$('gamesList')) return;
+  updateActiveGameRecord();
+  const active = savedGames.find(game => game.id === activeGameId);
+  $('activeGameTitle').textContent = active?.title || gameTitle();
+  $('activeGameMeta').textContent = `${active?.pitches || state.pitches.length} pitch${(active?.pitches || state.pitches.length) === 1 ? '' : 'es'} saved`;
+  $('gamesList').innerHTML = savedGames.map((game) => `
+    <div class="game-row ${game.id === activeGameId ? 'active' : ''}" data-game-id="${escapeHtml(game.id)}">
+      <div><strong>${escapeHtml(game.title)}</strong><small>${game.pitches || 0} pitches${game.id === activeGameId ? ' · current' : ''}</small></div>
+      <div class="game-row-actions">
+        <button class="game-action" data-open-game="${escapeHtml(game.id)}" type="button">${game.id === activeGameId ? 'Open' : 'Switch'}</button>
+        <button class="game-action danger" data-delete-game="${escapeHtml(game.id)}" type="button" ${savedGames.length <= 1 ? 'disabled' : ''}>Delete</button>
+      </div>
+    </div>`).join('');
 }
 
 let deferredInstallPrompt = null;
@@ -45,6 +135,47 @@ $('installButton').addEventListener('click', async () => {
 $('closeInstall').addEventListener('click', () => $('installDialog').close());
 $('doneInstall').addEventListener('click', () => $('installDialog').close());
 $('installDialog').addEventListener('click', (event) => { if (event.target === $('installDialog')) $('installDialog').close(); });
+$('gamesButton').addEventListener('click', () => { save(); renderGamesList(); $('gamesDialog').showModal(); });
+$('closeGames').addEventListener('click', () => $('gamesDialog').close());
+$('cancelGames').addEventListener('click', () => $('gamesDialog').close());
+$('gamesDialog').addEventListener('click', (event) => { if (event.target === $('gamesDialog')) $('gamesDialog').close(); });
+$('newGameButton').addEventListener('click', () => {
+  save();
+  if (state.pitches.length && !confirm('Create a new game? Your current game will stay saved.')) return;
+  activeGameId = createGameId();
+  savedGames.unshift({id: activeGameId, title: 'New game', updatedAt: new Date().toISOString(), pitches: 0, data: blankGameData()});
+  applyGameData(savedGames[0].data);
+  save();
+  $('gamesDialog').close();
+  showToast('New game ready');
+});
+$('gamesList').addEventListener('click', (event) => {
+  const openButton = event.target.closest('[data-open-game]');
+  const deleteButton = event.target.closest('[data-delete-game]');
+  if (openButton) {
+    save();
+    const game = savedGames.find(item => item.id === openButton.dataset.openGame);
+    if (!game) return;
+    activeGameId = game.id;
+    applyGameData(clone(game.data));
+    save();
+    $('gamesDialog').close();
+    showToast(`Opened ${game.title}`);
+    return;
+  }
+  if (deleteButton) {
+    if (savedGames.length <= 1) return showToast('Keep at least one game saved');
+    const game = savedGames.find(item => item.id === deleteButton.dataset.deleteGame);
+    if (!game || !confirm(`Delete saved game "${game.title}"?`)) return;
+    savedGames = savedGames.filter(item => item.id !== game.id);
+    if (activeGameId === game.id) {
+      activeGameId = savedGames[0].id;
+      applyGameData(clone(savedGames[0].data));
+    }
+    persistGames();
+    showToast('Saved game deleted');
+  }
+});
 if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) $('installButton').hidden = true;
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
@@ -420,7 +551,7 @@ choose('contactTypes', 'button', (button) => {
 choose('inPlayResults', 'button', (button) => {
   state.result = button.dataset.value;
   $('basicResults').querySelectorAll('button').forEach(item => item.classList.remove('selected'));
-  const isOut = state.result === 'In play - out';
+  const isOut = ['In play - out', 'Double play'].includes(state.result);
   const isError = state.result === 'Error';
   $('outLocationWrap').hidden = !isOut;
   $('errorLocationWrap').hidden = !isError;
@@ -492,18 +623,19 @@ function locationName(location) {
   return `${vertical} ${horizontal}`;
 }
 
-function isInPlayResult(result) { return ['In play', 'Single', 'Double', 'Triple', 'Home run', 'In play - out', 'Error'].includes(result); }
+function isInPlayResult(result) { return ['In play', 'Single', 'Double', 'Triple', 'Home run', 'In play - out', 'Double play', 'Error'].includes(result); }
 function updateRecordButton() {
   $('recordButton').disabled = false;
 }
 
 function resultWouldRecordOut(result) {
-  if (result === 'Strikeout' || result === 'In play - out') return true;
+  if (['Strikeout', 'In play - out', 'Double play'].includes(result)) return true;
   return ['Called strike', 'Swinging strike'].includes(result) && state.strikes + 1 >= 3;
 }
 
 function resultWouldChangeInning(result) {
-  return state.outs === 2 && resultWouldRecordOut(result);
+  const outsToAdd = result === 'Double play' ? 2 : (resultWouldRecordOut(result) ? 1 : 0);
+  return outsToAdd > 0 && state.outs + outsToAdd >= 3;
 }
 
 function confirmBatterAdvance(outcome, battingTeam) {
@@ -530,10 +662,10 @@ function updateEditPitchFields() {
   const result = $('editResult').value;
   const inPlay = isInPlayResult(result);
   $('editContactWrap').hidden = !inPlay;
-  $('editOutWrap').hidden = result !== 'In play - out';
+  $('editOutWrap').hidden = !['In play - out', 'Double play'].includes(result);
   $('editErrorWrap').hidden = result !== 'Error';
   if (!inPlay) $('editContact').value = '';
-  if (result !== 'In play - out') $('editOutPosition').value = '';
+  if (!['In play - out', 'Double play'].includes(result)) $('editOutPosition').value = '';
   if (result !== 'Error') $('editErrorPosition').value = '';
 }
 
@@ -647,7 +779,7 @@ $('saveEditPitch').addEventListener('click', () => {
   pitch.velocity = $('editVelocity').value;
   pitch.result = result;
   pitch.contactType = isInPlayResult(result) ? $('editContact').value : '';
-  pitch.outLocation = result === 'In play - out' ? $('editOutPosition').value : '';
+  pitch.outLocation = ['In play - out', 'Double play'].includes(result) ? $('editOutPosition').value : '';
   pitch.errorLocation = result === 'Error' ? $('editErrorPosition').value : '';
   pitch.note = $('editNote').value.trim();
   pitch.location = editingPitchLocation ? {...editingPitchLocation} : null;
@@ -708,14 +840,15 @@ function advanceGame(result) {
   if (result === 'HBP') { plateAppearanceEnded = true; label = 'HBP'; }
   if (state.strikes >= 3 || result === 'Strikeout') { plateAppearanceEnded = true; outRecorded = true; label = 'Strikeout'; }
   if (result === 'In play - out') { plateAppearanceEnded = true; outRecorded = true; label = 'Out in play'; }
+  if (result === 'Double play') { plateAppearanceEnded = true; outRecorded = true; label = 'Double play'; }
   if (['Single', 'Double', 'Triple', 'Home run', 'In play - hit', 'Error'].includes(result)) { plateAppearanceEnded = true; label = result === 'In play - hit' ? 'Hit' : result; }
-  if (outRecorded) inningChanged = recordOut();
+  if (outRecorded) inningChanged = recordOut(result === 'Double play' ? 2 : 1);
   if (plateAppearanceEnded) { state.balls = 0; state.strikes = 0; }
   return {plateAppearanceEnded, outRecorded, inningChanged, label};
 }
 
-function recordOut() {
-  state.outs++;
+function recordOut(outsToAdd = 1) {
+  state.outs += outsToAdd;
   if (state.outs < 3) { updateOutButtons(); return false; }
   state.outs = 0;
   if ($('half').value === 'Top') {
@@ -733,7 +866,7 @@ function recordOut() {
 function formatPitchResult(pitch) {
   if (pitch.result === 'Error') return [pitch.result, pitch.contactType, pitch.errorLocation].filter(Boolean).join(' · ');
   if (!pitch.contactType) return pitch.result;
-  const result = pitch.result === 'In play - out' ? 'Out' : pitch.result;
+  const result = pitch.result === 'In play - out' ? 'Out' : pitch.result === 'Double play' ? 'DP' : pitch.result;
   return [result, pitch.contactType, pitch.outLocation || pitch.errorLocation].filter(Boolean).join(' · ');
 }
 
@@ -752,7 +885,7 @@ function render() {
   $('pitchLog').innerHTML = state.pitches.slice().reverse().map((pitch) => `<tr class="pitch-log-row" data-pitch-number="${pitch.number}" tabindex="0" title="Tap to edit pitch #${pitch.number}"><td><b>${pitch.number}</b></td><td>${pitch.half[0]} ${pitch.inning}</td><td>${pitch.count}</td><td>${pitch.pitcherNumber ? `#${escapeHtml(pitch.pitcherNumber)} ` : ''}${escapeHtml(pitch.pitcher)}</td><td>${pitch.batterNumber ? `#${escapeHtml(pitch.batterNumber)} ` : ''}${escapeHtml(pitch.batter)}</td><td>${escapeHtml(pitch.type)}</td><td>${pitch.velocity ? `${escapeHtml(pitch.velocity)} mph` : '—'}</td><td>${escapeHtml(formatPitchResult(pitch))}</td><td>${locationName(pitch.location)}</td><td><button class="delete-pitch" data-delete-pitch="${pitch.number}" type="button" title="Delete pitch #${pitch.number}">Delete</button></td></tr>`).join('');
   const velocities = state.pitches.map(p => Number(p.velocity)).filter(Boolean);
   const avg = velocities.length ? Math.round(velocities.reduce((a,b) => a+b, 0) / velocities.length) : '—';
-  const strikes = state.pitches.filter(p => ['Called strike','Swinging strike','Foul','Strikeout','In play - hit'].includes(p.result) || ['Single','Double','Triple','Home run','In play - out'].includes(p.result)).length;
+  const strikes = state.pitches.filter(p => ['Called strike','Swinging strike','Foul','Strikeout','In play - hit'].includes(p.result) || ['Single','Double','Triple','Home run','In play - out','Double play'].includes(p.result)).length;
   const rate = state.pitches.length ? Math.round(strikes / state.pitches.length * 100) : 0;
   $('summary').innerHTML = `<span><b>${state.pitches.length}</b> pitches</span><span><b>${avg}</b> avg mph</span><span><b>${rate}%</b> strikes</span>`;
 }
@@ -824,8 +957,7 @@ function escapeHtml(value) { const div = document.createElement('div'); div.text
 function showToast(message) { $('toast').textContent = message; $('toast').classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => $('toast').classList.remove('show'), 2200); }
 
 function save() {
-  const data = { pitches: state.pitches, balls: state.balls, strikes: state.strikes, outs: state.outs, lineups: state.lineups, battingIndexes: state.battingIndexes, selectedPitchers: state.selectedPitchers, uiHidden: state.uiHidden, fields: Object.fromEntries(fields.map(id => [id, $(id).value])) };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  persistGames();
 }
 
 function ensurePlayerLinks() {
@@ -845,18 +977,31 @@ function ensurePlayerLinks() {
 
 function load() {
   try {
-    const data = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (!data) return;
-    state.pitches = data.pitches || []; state.balls = data.balls || 0; state.strikes = data.strikes || 0; state.outs = data.outs || 0;
-    if (data.lineups) state.lineups = data.lineups;
-    else if (data.lineup) state.lineups.away = data.lineup;
-    if (data.battingIndexes) state.battingIndexes = data.battingIndexes;
-    if (data.selectedPitchers) state.selectedPitchers = data.selectedPitchers;
-    if (data.uiHidden) state.uiHidden = {...state.uiHidden, ...data.uiHidden};
-    ensurePlayerLinks();
-    renderLineupOptions();
-    fields.forEach(id => { if (data.fields?.[id] !== undefined) $(id).value = data.fields[id]; });
-    updateOutButtons();
-  } catch (_) { localStorage.removeItem(STORAGE_KEY); }
+    const store = JSON.parse(localStorage.getItem(GAMES_KEY));
+    if (store?.games?.length) {
+      savedGames = store.games;
+      activeGameId = store.activeGameId || savedGames[0].id;
+      const active = savedGames.find(game => game.id === activeGameId) || savedGames[0];
+      activeGameId = active.id;
+      applyGameData(clone(active.data));
+      persistGames();
+      return;
+    }
+    const legacy = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const data = legacy || blankGameData();
+    if (data.lineup && !data.lineups) data.lineups = {home: createLineup(), away: data.lineup};
+    activeGameId = createGameId();
+    savedGames = [{id: activeGameId, title: gameTitle(data), updatedAt: new Date().toISOString(), pitches: data.pitches?.length || 0, data}];
+    applyGameData(clone(data));
+    persistGames();
+  } catch (_) {
+    localStorage.removeItem(GAMES_KEY);
+    localStorage.removeItem(STORAGE_KEY);
+    activeGameId = createGameId();
+    savedGames = [{id: activeGameId, title: 'New game', updatedAt: new Date().toISOString(), pitches: 0, data: blankGameData()}];
+    applyGameData(clone(savedGames[0].data));
+    persistGames();
+  }
 }
 fields.forEach(id => $(id).addEventListener('change', save));
 ['homeTeam', 'awayTeam'].forEach(id => $(id).addEventListener('input', () => {

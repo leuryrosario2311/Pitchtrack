@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="stylesheet" href="styles.css?v=25">
 </head>
 <body>
   <header class="topbar">
@@ -25,6 +25,7 @@
       <label>Date <input id="gameDate" type="date"></label>
     </div>
     <button class="button install-button" id="installButton">＋ Install App</button>
+    <button class="button button-ghost" id="gamesButton">Games</button>
     <button class="button button-lineup" id="lineupButton">☷ Lineups</button>
     <button class="button button-ghost" id="exportButton">Export CSV</button>
   </header>
@@ -141,7 +142,7 @@
           <div class="play-result-grid" id="inPlayResults">
             <button data-value="Single" title="Single" aria-label="H1 Single">H1</button><button data-value="Double" title="Double" aria-label="H2 Double">H2</button>
             <button data-value="Triple" title="Triple" aria-label="H3 Triple">H3</button><button data-value="Home run" title="Home run" aria-label="H4 Home run">H4</button>
-            <button data-value="In play - out">Out</button><button data-value="Error">Error</button>
+            <button data-value="In play - out">Out</button><button data-value="Double play">DP</button><button data-value="Error">Error</button>
           </div>
         </fieldset>
 
@@ -192,6 +193,22 @@
       </div>
     </section>
   </main>
+
+  <dialog class="games-dialog" id="gamesDialog">
+    <div class="dialog-heading compact">
+      <div><p class="eyebrow">Saved games</p><h2>Game manager</h2><p>Create a new game or open an old saved game.</p></div>
+      <button class="dialog-close" id="closeGames" aria-label="Close game manager">×</button>
+    </div>
+    <div class="games-body">
+      <div class="active-game-card">
+        <span>Current game</span>
+        <strong id="activeGameTitle">Untitled game</strong>
+        <small id="activeGameMeta">0 pitches</small>
+      </div>
+      <div class="games-list" id="gamesList"></div>
+    </div>
+    <div class="dialog-actions rename-actions"><button class="button dialog-cancel" id="cancelGames">Close</button><button class="button button-primary" id="newGameButton">＋ New game</button></div>
+  </dialog>
 
   <dialog class="lineup-dialog" id="lineupDialog">
     <div class="dialog-heading">
@@ -266,7 +283,7 @@
         <label><span>Batter</span><select id="editBatterName"></select></label>
         <label><span>Pitch type</span><select id="editPitchType"><option>Four-seam</option><option>Two-seam</option><option>Cutter</option><option>Slider</option><option>Curveball</option><option>Changeup</option><option>Splitter</option><option>Other</option></select></label>
         <label><span>Velocity</span><select id="editVelocity"><option value="">Not recorded</option></select></label>
-        <label><span>Result</span><select id="editResult"><option value="Not recorded">Not recorded</option><option>Ball</option><option>Called strike</option><option>Swinging strike</option><option>Foul</option><option>Strikeout</option><option>HBP</option><option value="In play">In play — result unknown</option><option>Single</option><option>Double</option><option>Triple</option><option>Home run</option><option value="In play - out">Out</option><option>Error</option></select></label>
+        <label><span>Result</span><select id="editResult"><option value="Not recorded">Not recorded</option><option>Ball</option><option>Called strike</option><option>Swinging strike</option><option>Foul</option><option>Strikeout</option><option>HBP</option><option value="In play">In play — result unknown</option><option>Single</option><option>Double</option><option>Triple</option><option>Home run</option><option value="In play - out">Out</option><option>Double play</option><option>Error</option></select></label>
         <label id="editContactWrap"><span>Contact</span><select id="editContact"><option value="">Choose contact</option><option>Fly ball</option><option>Ground ball</option><option>Line drive</option><option>Pop up</option></select></label>
         <label id="editOutWrap"><span>Out position</span><select id="editOutPosition"><option value="">Choose position</option><option>P</option><option>C</option><option>1B</option><option>2B</option><option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option></select></label>
         <label id="editErrorWrap"><span>Error position</span><select id="editErrorPosition"><option value="">Choose position</option><option>P</option><option>C</option><option>1B</option><option>2B</option><option>3B</option><option>SS</option><option>LF</option><option>CF</option><option>RF</option></select></label>
@@ -277,7 +294,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=23"></script>
-  <script src="app.js?v=23"></script>
+  <script src="pdf-export.js?v=25"></script>
+  <script src="app.js?v=25"></script>
 </body>
 </html>
