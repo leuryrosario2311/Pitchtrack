@@ -100,6 +100,15 @@ legend, .field span { display: block; margin-bottom: 9px; color: #43504a; font-s
 .position-grid button.selected { color: white; border-color: var(--green); background: var(--green); }
 .record { display: flex; justify-content: space-between; width: 100%; margin-top: 24px; padding: 14px 18px; color: white; background: var(--green); }
 .record:hover:not(:disabled) { background: var(--green-2); }.record:disabled { cursor: not-allowed; opacity: .38; }
+.box-score-panel { position: relative; margin-top: 18px; overflow: hidden; }
+.box-score-body { position: relative; padding: 0 0 16px; }
+.box-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 18px 16px; }
+.box-score-section { padding: 0 18px 16px; }
+.box-score-panel h3 { margin: 0 0 9px; color: var(--green); font-family: Georgia, serif; font-size: 20px; font-weight: 500; }
+.stat-table-wrap { min-height: 0; border: 1px solid var(--line); border-radius: 10px; }
+.stat-table-wrap table { min-width: 620px; }
+.stat-table-wrap th, .stat-table-wrap td { padding: 9px 11px; }
+.box-score-empty { inset: 70px 0 20px; background: rgba(255,254,250,.82); }
 .log-panel { margin-top: 18px; overflow: hidden; }
 .log-heading { align-items: center; padding: 21px 27px 16px; }
 .summary { display: flex; gap: 24px; color: var(--muted); font-size: 11px; }.summary b { display: block; color: var(--ink); font-size: 16px; }
@@ -231,7 +240,11 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
   .field input, .field select { min-height: 46px; }
   .record { position: sticky; bottom: max(8px,env(safe-area-inset-bottom)); z-index: 5; min-height: 50px; box-shadow: 0 8px 22px rgba(18,63,49,.24); }
   .log-panel { margin-top: 10px; }
+  .box-score-panel { margin-top: 10px; }
+  .box-score-grid { grid-template-columns: 1fr; padding-inline: 12px; }
+  .box-score-section { padding-inline: 12px; }
   .table-wrap table { min-width: 820px; }
+  .stat-table-wrap table { min-width: 620px; }
   .log-actions .text-button { min-height: 44px; }
 }
 @media (max-width: 760px) {

@@ -921,6 +921,150 @@ function formatPitchResult(pitch) {
   return [result, pitch.contactType, pitch.outLocation || pitch.errorLocation].filter(Boolean).join(' · ');
 }
 
+function teamName(team) {
+  return $(team === 'home' ? 'homeTeam' : 'awayTeam').value.trim() || capitalize(team);
+}
+
+function pitchBattingTeam(pitch) {
+  return pitch.half === 'Top' ? 'away' : 'home';
+}
+
+function pitchFieldingTeam(pitch) {
+  return pitchBattingTeam(pitch) === 'away' ? 'home' : 'away';
+}
+
+function countBefore(pitch) {
+  const [balls = 0, strikes = 0] = String(pitch.count || '0-0').split('-').map(Number);
+  return {balls, strikes};
+}
+
+function blankBattingStats(label, team) {
+  return {label, team, pa: 0, ab: 0, h: 0, doubles: 0, triples: 0, hr: 0, bb: 0, k: 0, hbp: 0, roe: 0};
+}
+
+function blankPitchingStats(label, team) {
+  return {label, team, pitches: 0, strikes: 0, balls: 0, h: 0, bb: 0, k: 0, hbp: 0, outs: 0};
+}
+
+function isHitResult(result) {
+  return ['Single', 'Double', 'Triple', 'Home run', 'In play - hit'].includes(result);
+}
+
+function isStrikeResult(result) {
+  return ['Called strike', 'Swinging strike', 'Foul', 'Strikeout', 'Single', 'Double', 'Triple', 'Home run', 'In play - hit', 'In play - out', 'Double play', 'Error'].includes(result);
+}
+
+function pitchOutcome(pitch) {
+  const {balls, strikes} = countBefore(pitch);
+  const result = pitch.result;
+  const walk = result === 'Ball' && balls >= 3;
+  const strikeout = result === 'Strikeout' || (['Called strike', 'Swinging strike'].includes(result) && strikes >= 2);
+  const hbp = result === 'HBP';
+  const hit = isHitResult(result);
+  const out = result === 'In play - out';
+  const dp = result === 'Double play';
+  const error = result === 'Error';
+  const terminal = walk || strikeout || hbp || hit || out || dp || error;
+  return {walk, strikeout, hbp, hit, out, dp, error, terminal};
+}
+
+function avgText(hits, atBats) {
+  if (!atBats) return '—';
+  return (hits / atBats).toFixed(3).replace(/^0/, '');
+}
+
+function pctText(part, total) {
+  return total ? `${Math.round((part / total) * 100)}%` : '—';
+}
+
+function addBattingOutcome(stats, pitch, outcome) {
+  if (!outcome.terminal) return;
+  stats.pa++;
+  if (!outcome.walk && !outcome.hbp) stats.ab++;
+  if (outcome.hit) stats.h++;
+  if (pitch.result === 'Double') stats.doubles++;
+  if (pitch.result === 'Triple') stats.triples++;
+  if (pitch.result === 'Home run') stats.hr++;
+  if (outcome.walk) stats.bb++;
+  if (outcome.strikeout) stats.k++;
+  if (outcome.hbp) stats.hbp++;
+  if (outcome.error) stats.roe++;
+}
+
+function boxScoreStats() {
+  const teamStats = {away: blankBattingStats(teamName('away'), 'away'), home: blankBattingStats(teamName('home'), 'home')};
+  const batterStats = new Map();
+  const pitcherStats = new Map();
+  const pitchTypes = new Map();
+
+  state.pitches.forEach((pitch) => {
+    const battingTeam = pitchBattingTeam(pitch);
+    const fieldingTeam = pitchFieldingTeam(pitch);
+    const outcome = pitchOutcome(pitch);
+    const batterLabel = `${pitch.batterNumber ? `#${pitch.batterNumber} ` : ''}${pitch.batter || '—'}`;
+    const batterKey = `${battingTeam}:${pitch.batterId || pitch.batter || 'unknown'}`;
+    const pitcherLabel = `${pitch.pitcherNumber ? `#${pitch.pitcherNumber} ` : ''}${pitch.pitcher || '—'}`;
+    const pitcherKey = `${fieldingTeam}:${pitch.pitcherId || pitch.pitcher || 'unknown'}`;
+    const typeKey = pitch.type || 'Not recorded';
+
+    addBattingOutcome(teamStats[battingTeam], pitch, outcome);
+    if (!batterStats.has(batterKey)) batterStats.set(batterKey, blankBattingStats(batterLabel, battingTeam));
+    addBattingOutcome(batterStats.get(batterKey), pitch, outcome);
+
+    if (!pitcherStats.has(pitcherKey)) pitcherStats.set(pitcherKey, blankPitchingStats(pitcherLabel, fieldingTeam));
+    const pitcher = pitcherStats.get(pitcherKey);
+    pitcher.pitches++;
+    if (isStrikeResult(pitch.result)) pitcher.strikes++;
+    if (pitch.result === 'Ball') pitcher.balls++;
+    if (outcome.hit) pitcher.h++;
+    if (outcome.walk) pitcher.bb++;
+    if (outcome.strikeout) pitcher.k++;
+    if (outcome.hbp) pitcher.hbp++;
+    if (outcome.strikeout || outcome.out) pitcher.outs++;
+    if (outcome.dp) pitcher.outs += 2;
+
+    if (!pitchTypes.has(typeKey)) pitchTypes.set(typeKey, {label: typeKey, total: 0, strikes: 0, velocities: [], whiffs: 0, inPlay: 0});
+    const pitchType = pitchTypes.get(typeKey);
+    pitchType.total++;
+    if (isStrikeResult(pitch.result)) pitchType.strikes++;
+    if (Number(pitch.velocity)) pitchType.velocities.push(Number(pitch.velocity));
+    if (pitch.result === 'Swinging strike') pitchType.whiffs++;
+    if (isInPlayResult(pitch.result)) pitchType.inPlay++;
+  });
+
+  return {teamStats, batterStats: [...batterStats.values()], pitcherStats: [...pitcherStats.values()], pitchTypes: [...pitchTypes.values()]};
+}
+
+function renderBoxScore() {
+  const stats = boxScoreStats();
+  const teamRows = ['away', 'home'].map((team) => {
+    const s = stats.teamStats[team];
+    return `<tr><td><b>${escapeHtml(s.label)}</b></td><td>${s.pa}</td><td>${s.ab}</td><td>${s.h}</td><td>${s.doubles}</td><td>${s.triples}</td><td>${s.hr}</td><td>${s.bb}</td><td>${s.k}</td><td>${s.hbp}</td><td>${s.roe}</td><td>${avgText(s.h, s.ab)}</td></tr>`;
+  }).join('');
+  $('teamBoxRows').innerHTML = teamRows;
+  $('batterBoxRows').innerHTML = stats.batterStats
+    .filter(s => s.pa)
+    .sort((a, b) => a.team.localeCompare(b.team) || b.pa - a.pa || a.label.localeCompare(b.label))
+    .map(s => `<tr><td><b>${escapeHtml(s.label)}</b></td><td>${escapeHtml(teamName(s.team))}</td><td>${s.pa}</td><td>${s.ab}</td><td>${s.h}</td><td>${s.doubles}</td><td>${s.triples}</td><td>${s.hr}</td><td>${s.bb}</td><td>${s.k}</td><td>${s.hbp}</td><td>${s.roe}</td><td>${avgText(s.h, s.ab)}</td></tr>`)
+    .join('');
+  $('pitcherBoxRows').innerHTML = stats.pitcherStats
+    .sort((a, b) => a.team.localeCompare(b.team) || b.pitches - a.pitches || a.label.localeCompare(b.label))
+    .map(s => `<tr><td><b>${escapeHtml(s.label)}</b></td><td>${escapeHtml(teamName(s.team))}</td><td>${s.pitches}</td><td>${pctText(s.strikes, s.pitches)}</td><td>${s.h}</td><td>${s.bb}</td><td>${s.k}</td><td>${s.hbp}</td><td>${s.outs}</td></tr>`)
+    .join('');
+  $('pitchTypeBoxRows').innerHTML = stats.pitchTypes
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
+    .map(s => {
+      const avgVelocity = s.velocities.length ? Math.round(s.velocities.reduce((total, mph) => total + mph, 0) / s.velocities.length) : '—';
+      return `<tr><td><b>${escapeHtml(s.label)}</b></td><td>${s.total}</td><td>${pctText(s.strikes, s.total)}</td><td>${avgVelocity}</td><td>${s.whiffs}</td><td>${s.inPlay}</td></tr>`;
+    })
+    .join('');
+  const totalPa = stats.teamStats.away.pa + stats.teamStats.home.pa;
+  const totalHits = stats.teamStats.away.h + stats.teamStats.home.h;
+  const totalK = stats.teamStats.away.k + stats.teamStats.home.k;
+  $('boxScoreSummary').innerHTML = `<span><b>${totalPa}</b> PA</span><span><b>${totalHits}</b> hits</span><span><b>${totalK}</b> K</span>`;
+  $('boxScoreEmpty').hidden = state.pitches.length > 0;
+}
+
 function render() {
   $('ballCount').textContent = state.balls; $('strikeCount').textContent = state.strikes;
   $('zoneBody').hidden = state.uiHidden.zone;
@@ -940,6 +1084,7 @@ function render() {
   const strikes = state.pitches.filter(p => ['Called strike','Swinging strike','Foul','Strikeout','In play - hit'].includes(p.result) || ['Single','Double','Triple','Home run','In play - out','Double play'].includes(p.result)).length;
   const rate = state.pitches.length ? Math.round(strikes / state.pitches.length * 100) : 0;
   $('summary').innerHTML = `<span><b>${state.pitches.length}</b> pitches</span><span><b>${avg}</b> avg mph</span><span><b>${rate}%</b> strikes</span>`;
+  renderBoxScore();
 }
 
 function renumberPitches() {

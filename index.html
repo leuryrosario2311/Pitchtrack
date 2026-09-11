@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=28">
+  <link rel="stylesheet" href="styles.css?v=29">
 </head>
 <body>
   <header class="topbar">
@@ -172,6 +172,54 @@
       </aside>
     </section>
 
+    <section class="panel box-score-panel">
+      <div class="panel-heading log-heading">
+        <div><p class="eyebrow">Live game stats</p><h2>Box score</h2></div>
+        <div class="summary" id="boxScoreSummary"><span><b>0</b> PA</span><span><b>0</b> hits</span><span><b>0</b> K</span></div>
+      </div>
+      <div class="box-score-body" id="boxScoreBody">
+        <div class="box-score-grid">
+          <section>
+            <h3>Team batting</h3>
+            <div class="table-wrap stat-table-wrap">
+              <table>
+                <thead><tr><th>Team</th><th>PA</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>BB</th><th>K</th><th>HBP</th><th>ROE</th><th>AVG</th></tr></thead>
+                <tbody id="teamBoxRows"></tbody>
+              </table>
+            </div>
+          </section>
+          <section>
+            <h3>Pitchers</h3>
+            <div class="table-wrap stat-table-wrap">
+              <table>
+                <thead><tr><th>Pitcher</th><th>Team</th><th>P</th><th>Strike %</th><th>H</th><th>BB</th><th>K</th><th>HBP</th><th>Outs</th></tr></thead>
+                <tbody id="pitcherBoxRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <section class="box-score-section">
+          <h3>Batters</h3>
+          <div class="table-wrap stat-table-wrap">
+            <table>
+              <thead><tr><th>Batter</th><th>Team</th><th>PA</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>BB</th><th>K</th><th>HBP</th><th>ROE</th><th>AVG</th></tr></thead>
+              <tbody id="batterBoxRows"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="box-score-section">
+          <h3>Pitch types</h3>
+          <div class="table-wrap stat-table-wrap">
+            <table>
+              <thead><tr><th>Pitch</th><th>Total</th><th>Strike %</th><th>Avg MPH</th><th>Whiff</th><th>In play</th></tr></thead>
+              <tbody id="pitchTypeBoxRows"></tbody>
+            </table>
+          </div>
+        </section>
+        <div class="empty-state box-score-empty" id="boxScoreEmpty"><span>▦</span><p>No box score yet.</p><small>Record pitches and the live stats will update here.</small></div>
+      </div>
+    </section>
+
     <section class="panel log-panel">
       <div class="panel-heading log-heading">
         <div><p class="eyebrow">Game log</p><h2>Pitch history</h2></div>
@@ -298,7 +346,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=28"></script>
-  <script src="app.js?v=28"></script>
+  <script src="pdf-export.js?v=29"></script>
+  <script src="app.js?v=29"></script>
 </body>
 </html>
