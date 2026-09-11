@@ -284,6 +284,8 @@ $('closeLineup').addEventListener('click', cancelLineupChanges);
 $('cancelLineup').addEventListener('click', cancelLineupChanges);
 $('lineupDialog').addEventListener('input', updateLineupCount);
 $('lineupDialog').addEventListener('click', (event) => { if (event.target === $('lineupDialog')) cancelLineupChanges(); });
+$('jumpBatters').addEventListener('click', () => $('battingLineupTitle').scrollIntoView({behavior: 'smooth', block: 'start'}));
+$('jumpPitchers').addEventListener('click', () => $('pitchingStaffTitle').scrollIntoView({behavior: 'smooth', block: 'start'}));
 $('quickBatters').addEventListener('click', () => {
   $('battingLineup').querySelectorAll('.lineup-name').forEach((input, index) => { if (!input.value.trim()) input.value = `Player ${index + 1}`; });
   updateLineupCount();
@@ -367,7 +369,8 @@ $('lineupDialog').addEventListener('click', (event) => {
     if (targetIndex < 0 || targetIndex >= collection.length) return;
     [collection[index], collection[targetIndex]] = [collection[targetIndex], collection[index]];
     buildLineupEditor();
-    const movedRow = $('battingLineup').querySelectorAll('.lineup-row')[targetIndex];
+    const movedList = moveButton.dataset.kind === 'batter' ? $('battingLineup') : $('pitchingStaff');
+    const movedRow = movedList.querySelectorAll('.lineup-row')[targetIndex];
     movedRow?.scrollIntoView({block: 'nearest'});
     movedRow?.querySelector('.lineup-name')?.focus();
     return;

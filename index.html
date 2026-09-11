@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=26">
+  <link rel="stylesheet" href="styles.css?v=27">
 </head>
 <body>
   <header class="topbar">
@@ -219,6 +219,10 @@
       <button class="team-tab" data-team="home" role="tab" aria-selected="false"><span>HOME</span> Home Team</button>
       <button class="team-tab active" data-team="away" role="tab" aria-selected="true"><span>AWAY</span> Away Team</button>
     </div>
+    <div class="lineup-jumps" aria-label="Lineup shortcuts">
+      <button id="jumpBatters" type="button">Batters</button>
+      <button id="jumpPitchers" type="button">Pitchers</button>
+    </div>
     <div class="lineup-columns">
       <section>
         <div class="lineup-title"><h3 id="battingLineupTitle">Away batting order</h3><div><button class="quick-fill" id="quickBatters" type="button">Quick fill</button><button class="add-player" id="addBatterRow" type="button">＋ Add player</button></div></div>
@@ -294,7 +298,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=26"></script>
-  <script src="app.js?v=26"></script>
+  <script src="pdf-export.js?v=27"></script>
+  <script src="app.js?v=27"></script>
 </body>
 </html>
