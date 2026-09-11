@@ -1069,6 +1069,64 @@ function boxScoreStats() {
   return {teamStats, batterStats: [...batterStats.values()], pitcherStats: [...pitcherStats.values()], pitchTypes: [...pitchTypes.values()], atBatsByInning};
 }
 
+function scorecardPlayers(team, atBatsByInning) {
+  const players = state.lineups[team].batters.map((player, index) => ({
+    key: player.id || `${team}:lineup:${index}`,
+    order: index + 1,
+    name: player.name || `Player ${index + 1}`,
+    number: player.number || '',
+    position: player.position || ''
+  }));
+  atBatsByInning.filter(item => item.battingTeam === team).forEach(({pitch}) => {
+    const key = pitch.batterId || `${team}:name:${pitch.batter || 'unknown'}`;
+    if (players.some(player => player.key === key || (pitch.batter && player.name === pitch.batter))) return;
+    players.push({
+      key,
+      order: players.length + 1,
+      name: pitch.batter || '—',
+      number: pitch.batterNumber || '',
+      position: ''
+    });
+  });
+  return players;
+}
+
+function renderScorecardTeam(team, atBatsByInning, innings) {
+  const players = scorecardPlayers(team, atBatsByInning);
+  const cells = new Map();
+  atBatsByInning.filter(item => item.battingTeam === team).forEach((item) => {
+    const key = item.pitch.batterId || `${team}:name:${item.pitch.batter || 'unknown'}`;
+    const player = players.find(entry => entry.key === key || (item.pitch.batter && entry.name === item.pitch.batter));
+    const cellKey = `${player?.key || key}:${item.pitch.inning}`;
+    if (!cells.has(cellKey)) cells.set(cellKey, []);
+    cells.get(cellKey).push(item.code);
+  });
+
+  return `
+    <div class="scorecard-table-wrap">
+      <div class="scorecard-title"><span>${escapeHtml(teamName(team))}</span><small>${team === 'away' ? 'Top innings' : 'Bottom innings'}</small></div>
+      <table class="scorecard-grid">
+        <thead><tr><th class="order-head">#</th><th class="player-head">Batter</th><th class="pos-head">Pos</th>${innings.map(inning => `<th>${inning}</th>`).join('')}</tr></thead>
+        <tbody>${players.map((player) => `
+          <tr>
+            <td class="scorecard-order">${player.order}</td>
+            <td class="scorecard-player">${player.number ? `#${escapeHtml(player.number)} ` : ''}${escapeHtml(player.name)}</td>
+            <td class="scorecard-pos">${escapeHtml(player.position || '—')}</td>
+            ${innings.map((inning) => {
+              const codes = cells.get(`${player.key}:${inning}`) || [];
+              return `<td>${codes.map(code => `<span class="scorecard-code">${escapeHtml(code)}</span>`).join('')}</td>`;
+            }).join('')}
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderInningScorecard(atBatsByInning) {
+  const maxPitchInning = Math.max(9, ...state.pitches.map(pitch => Number(pitch.inning) || 1));
+  const innings = Array.from({length: maxPitchInning}, (_, index) => index + 1);
+  $('inningAtBatRows').innerHTML = `${renderScorecardTeam('away', atBatsByInning, innings)}${renderScorecardTeam('home', atBatsByInning, innings)}`;
+}
+
 function renderBoxScore() {
   const stats = boxScoreStats();
   const teamRows = ['away', 'home'].map((team) => {
@@ -1085,9 +1143,7 @@ function renderBoxScore() {
     .sort((a, b) => a.team.localeCompare(b.team) || b.pitches - a.pitches || a.label.localeCompare(b.label))
     .map(s => `<tr><td><b>${escapeHtml(s.label)}</b></td><td>${escapeHtml(teamName(s.team))}</td><td>${s.pitches}</td><td>${pctText(s.strikes, s.pitches)}</td><td>${s.h}</td><td>${s.bb}</td><td>${s.k}</td><td>${s.hbp}</td><td>${s.outs}</td></tr>`)
     .join('');
-  $('inningAtBatRows').innerHTML = stats.atBatsByInning
-    .map(({pitch, battingTeam, batterLabel, code}) => `<tr><td>${pitch.half[0]} ${pitch.inning}</td><td>${escapeHtml(teamName(battingTeam))}</td><td><b>${escapeHtml(batterLabel)}</b></td><td><b>${escapeHtml(code)}</b></td><td>${escapeHtml(formatPitchResult(pitch))}</td></tr>`)
-    .join('');
+  renderInningScorecard(stats.atBatsByInning);
   $('pitchTypeBoxRows').innerHTML = stats.pitchTypes
     .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
     .map(s => {

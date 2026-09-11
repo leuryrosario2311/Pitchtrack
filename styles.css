@@ -108,6 +108,21 @@ legend, .field span { display: block; margin-bottom: 9px; color: #43504a; font-s
 .stat-table-wrap { min-height: 0; border: 1px solid var(--line); border-radius: 10px; }
 .stat-table-wrap table { min-width: 620px; }
 .stat-table-wrap th, .stat-table-wrap td { padding: 9px 11px; }
+.scorecard-wrap { display: grid; gap: 18px; }
+.scorecard-table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 10px; -webkit-overflow-scrolling: touch; }
+.scorecard-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #f6f5ef; border-bottom: 1px solid var(--line); color: var(--green); font-weight: 900; }
+.scorecard-title small { color: var(--muted); font-size: 11px; }
+.scorecard-grid { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+.scorecard-grid th { background: #789449; color: white; text-align: center; }
+.scorecard-grid th.player-head, .scorecard-grid th.pos-head, .scorecard-grid th.order-head { color: #43504a; background: #f6f5ef; }
+.scorecard-grid th.order-head { width: 42px; }
+.scorecard-grid th.player-head { width: 170px; text-align: left; }
+.scorecard-grid th.pos-head { width: 55px; }
+.scorecard-grid td { height: 46px; padding: 7px; border: 1px solid #d7d6ce; white-space: normal; vertical-align: top; }
+.scorecard-grid .scorecard-order { text-align: center; color: var(--green); background: #edf1d4; font-weight: 900; }
+.scorecard-grid .scorecard-player { font-weight: 800; }
+.scorecard-grid .scorecard-pos { text-align: center; color: #5f6964; font-weight: 800; }
+.scorecard-code { display: inline-block; margin: 0 3px 3px 0; padding: 3px 6px; color: var(--green); background: #edf1d4; border-radius: 6px; font-weight: 900; }
 .box-score-empty { inset: 70px 0 20px; background: rgba(255,254,250,.82); }
 .log-panel { margin-top: 18px; overflow: hidden; }
 .log-heading { align-items: center; padding: 21px 27px 16px; }
