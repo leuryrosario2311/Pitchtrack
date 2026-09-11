@@ -574,6 +574,54 @@ function updateOutButtons() {
   $('outButtons').querySelectorAll('button').forEach((button) => button.classList.toggle('active', Number(button.dataset.outs) === state.outs));
 }
 
+function clearPitchEntryForm() {
+  state.location = null;
+  state.pitchType = 'Four-seam';
+  state.pitchGroup = 'fastball';
+  state.result = null;
+  state.contactType = null;
+  state.outLocation = '';
+  state.errorLocation = '';
+  $('velocity').value = '';
+  $('note').value = '';
+  $('crosshair').classList.remove('visible');
+  $('zoneHelp').textContent = 'Location is optional — tap the zone if you want to chart it.';
+  $('pitchTypes').querySelectorAll('button').forEach((button) => {
+    button.classList.toggle('selected', button.dataset.value === 'Four-seam');
+  });
+  ['basicResults', 'contactTypes', 'inPlayResults'].forEach((id) => {
+    $(id).querySelectorAll('button').forEach((button) => button.classList.remove('selected'));
+  });
+  $('outPositions').querySelectorAll('button').forEach((button) => button.classList.remove('selected'));
+  $('errorPositions').querySelectorAll('button').forEach((button) => button.classList.remove('selected'));
+  $('outLocationWrap').hidden = true;
+  $('errorLocationWrap').hidden = true;
+  updateRecordButton();
+}
+
+function hasLineupPlayers(team) {
+  const lineup = state.lineups[team];
+  return lineup.batters.some(player => player.name || player.number || player.position) ||
+    lineup.pitchers.some(player => player.name || player.number);
+}
+
+function hasGameContent() {
+  return state.pitches.length > 0 ||
+    $('homeTeam').value.trim() ||
+    $('awayTeam').value.trim() ||
+    hasLineupPlayers('home') ||
+    hasLineupPlayers('away') ||
+    state.balls > 0 ||
+    state.strikes > 0 ||
+    state.outs > 0 ||
+    $('inning').value !== '1' ||
+    $('half').value !== 'Top';
+}
+
+function updateResetButtonState() {
+  $('resetButton').disabled = !hasGameContent();
+}
+
 function setPanelVisibility(panel, hidden) {
   state.uiHidden[panel] = hidden;
   const body = panel === 'zone' ? $('zoneBody') : $('historyBody');
@@ -880,7 +928,8 @@ function render() {
   $('toggleHistory').setAttribute('aria-expanded', String(!state.uiHidden.history));
   $('pitchNumber').textContent = `#${state.pitches.length + 1}`;
   $('emptyState').hidden = state.pitches.length > 0;
-  $('undoButton').disabled = $('resetButton').disabled = state.pitches.length === 0;
+  $('undoButton').disabled = state.pitches.length === 0;
+  updateResetButtonState();
   $('pitchMarkers').innerHTML = state.pitches.filter(pitch => pitch.location).map((pitch) => `<span class="pitch-marker ${pitch.group}" style="left:${pitch.location.x}%;top:${pitch.location.y}%" title="#${pitch.number} ${escapeHtml(pitch.type)} — ${escapeHtml(formatPitchResult(pitch))}">${pitch.number}</span>`).join('');
   $('pitchLog').innerHTML = state.pitches.slice().reverse().map((pitch) => `<tr class="pitch-log-row" data-pitch-number="${pitch.number}" tabindex="0" title="Tap to edit pitch #${pitch.number}"><td><b>${pitch.number}</b></td><td>${pitch.half[0]} ${pitch.inning}</td><td>${pitch.count}</td><td>${pitch.pitcherNumber ? `#${escapeHtml(pitch.pitcherNumber)} ` : ''}${escapeHtml(pitch.pitcher)}</td><td>${pitch.batterNumber ? `#${escapeHtml(pitch.batterNumber)} ` : ''}${escapeHtml(pitch.batter)}</td><td>${escapeHtml(pitch.type)}</td><td>${pitch.velocity ? `${escapeHtml(pitch.velocity)} mph` : '—'}</td><td>${escapeHtml(formatPitchResult(pitch))}</td><td>${locationName(pitch.location)}</td><td><button class="delete-pitch" data-delete-pitch="${pitch.number}" type="button" title="Delete pitch #${pitch.number}">Delete</button></td></tr>`).join('');
   const velocities = state.pitches.map(p => Number(p.velocity)).filter(Boolean);
@@ -939,8 +988,19 @@ $('undoButton').addEventListener('click', () => {
   updateOutButtons(); render(); save(); showToast('Last pitch removed');
 });
 $('resetButton').addEventListener('click', () => {
-  if (!state.pitches.length || !confirm('Reset this game and remove every recorded pitch?')) return;
-  state.pitches = []; state.balls = 0; state.strikes = 0; state.outs = 0; updateOutButtons(); render(); save(); showToast('Game reset');
+  if (!hasGameContent() || !confirm('Reset this game? This will clear pitch history, team names, and lineups for this saved game.')) return;
+  applyGameData(blankGameData());
+  editingTeam = 'away';
+  $('teamTabs').querySelectorAll('.team-tab').forEach((button) => {
+    const active = button.dataset.team === editingTeam;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  clearPitchEntryForm();
+  updateLineupLabels();
+  updateLineupCount();
+  save();
+  showToast('Game reset');
 });
 
 $('exportButton').addEventListener('click', () => {
@@ -1003,9 +1063,10 @@ function load() {
     persistGames();
   }
 }
-fields.forEach(id => $(id).addEventListener('change', save));
+fields.forEach(id => $(id).addEventListener('change', () => { updateResetButtonState(); save(); }));
 ['homeTeam', 'awayTeam'].forEach(id => $(id).addEventListener('input', () => {
   updateLineupLabels();
   updateLineupCount();
+  updateResetButtonState();
 }));
 load(); renderLineupOptions(); render();
