@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=29">
+  <link rel="stylesheet" href="styles.css?v=30">
 </head>
 <body>
   <header class="topbar">
@@ -208,6 +208,15 @@
           </div>
         </section>
         <section class="box-score-section">
+          <h3>At-bats by inning</h3>
+          <div class="table-wrap stat-table-wrap">
+            <table>
+              <thead><tr><th>Inning</th><th>Team</th><th>Batter</th><th>Result</th><th>Full result</th></tr></thead>
+              <tbody id="inningAtBatRows"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="box-score-section">
           <h3>Pitch types</h3>
           <div class="table-wrap stat-table-wrap">
             <table>
@@ -346,7 +355,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=29"></script>
-  <script src="app.js?v=29"></script>
+  <script src="pdf-export.js?v=30"></script>
+  <script src="app.js?v=30"></script>
 </body>
 </html>
