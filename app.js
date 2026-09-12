@@ -439,6 +439,17 @@ $('exportLineupsPdf').addEventListener('click', () => {
   save(); showToast('Lineups PDF exported');
 });
 
+$('exportStatsPdf').addEventListener('click', () => {
+  if (!state.pitches.length) return showToast('Record a pitch before exporting stats');
+  const bytes = createStatsPdf(statsPdfData());
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([bytes], {type: 'application/pdf'}));
+  link.download = `live-stats-${$('gameDate').value || 'game'}.pdf`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  showToast('Live stats PDF exported');
+});
+
 function setBatter(player) { $('batter').value = player.name; $('bats').value = player.bats; }
 $('batter').addEventListener('change', () => {
   const team = $('half').value === 'Top' ? 'away' : 'home';
@@ -1158,10 +1169,64 @@ function renderScorecardTeam(team, atBatsByInning, innings) {
     </div>`;
 }
 
+function scorecardPdfData(team, atBatsByInning, innings) {
+  const players = scorecardPlayers(team, atBatsByInning);
+  const cells = new Map();
+  atBatsByInning.filter(item => item.battingTeam === team).forEach((item) => {
+    const key = item.pitch.batterId || `${team}:name:${item.pitch.batter || 'unknown'}`;
+    const player = players.find(entry => entry.key === key || (item.pitch.batter && entry.name === item.pitch.batter));
+    const cellKey = `${player?.key || key}:${item.pitch.inning}`;
+    if (!cells.has(cellKey)) cells.set(cellKey, []);
+    cells.get(cellKey).push(item.code);
+  });
+  return {
+    teamName: teamName(team),
+    innings,
+    players: players.map((player) => ({
+      order: String(player.order),
+      name: player.name,
+      number: player.number,
+      position: player.position,
+      note: player.note,
+      cells: Object.fromEntries(innings.map(inning => [inning, cells.get(`${player.key}:${inning}`) || []]))
+    }))
+  };
+}
+
 function renderInningScorecard(atBatsByInning) {
   const maxPitchInning = Math.max(9, ...state.pitches.map(pitch => Number(pitch.inning) || 1));
   const innings = Array.from({length: maxPitchInning}, (_, index) => index + 1);
   $('inningAtBatRows').innerHTML = `${renderScorecardTeam('away', atBatsByInning, innings)}${renderScorecardTeam('home', atBatsByInning, innings)}`;
+}
+
+function statsPdfData() {
+  const stats = boxScoreStats();
+  const maxPitchInning = Math.max(9, ...state.pitches.map(pitch => Number(pitch.inning) || 1));
+  const innings = Array.from({length: maxPitchInning}, (_, index) => index + 1);
+  return {
+    date: $('gameDate').value,
+    homeName: teamName('home'),
+    awayName: teamName('away'),
+    teamRows: ['away', 'home'].map((team) => {
+      const s = stats.teamStats[team];
+      return [s.label, s.pa, s.ab, s.h, s.doubles, s.triples, s.hr, s.bb, s.k, s.hbp, s.roe, avgText(s.h, s.ab)];
+    }),
+    pitcherRows: stats.pitcherStats
+      .sort((a, b) => a.team.localeCompare(b.team) || b.pitches - a.pitches || a.label.localeCompare(b.label))
+      .map(s => [s.label, teamName(s.team), s.pitches, pctText(s.strikes, s.pitches), s.h, s.bb, s.k, s.hbp, s.outs]),
+    batterRows: stats.batterStats
+      .filter(s => s.pa)
+      .sort((a, b) => a.team.localeCompare(b.team) || b.pa - a.pa || a.label.localeCompare(b.label))
+      .map(s => [s.label, teamName(s.team), s.pa, s.ab, s.h, s.doubles, s.triples, s.hr, s.bb, s.k, avgText(s.h, s.ab)]),
+    awayScorecard: scorecardPdfData('away', stats.atBatsByInning, innings),
+    homeScorecard: scorecardPdfData('home', stats.atBatsByInning, innings),
+    pitchTypeRows: stats.pitchTypes
+      .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
+      .map((s) => {
+        const avgVelocity = s.velocities.length ? Math.round(s.velocities.reduce((total, mph) => total + mph, 0) / s.velocities.length) : '-';
+        return [s.label, s.total, pctText(s.strikes, s.total), avgVelocity, s.whiffs, s.inPlay];
+      })
+  };
 }
 
 function renderBoxScore() {
