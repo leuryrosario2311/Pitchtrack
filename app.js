@@ -14,7 +14,7 @@ const state = {
   lineups: {home: createLineup(), away: createLineup()},
   battingIndexes: {home: 0, away: 0},
   selectedPitchers: {home: '', away: ''},
-  uiHidden: {zone: false, history: false}
+  uiHidden: {zone: false, history: false, boxScore: false}
 };
 let editingTeam = 'away';
 let lineupSnapshot = null;
@@ -479,12 +479,19 @@ function syncPlayersForHalf() {
 $('half').addEventListener('change', () => { syncPlayersForHalf(); save(); });
 
 let editingPlayerKind = null;
+let editingPlayer = null;
 function openPlayerEditor(kind) {
   const select = $(kind);
   if (!select.value) { showToast(`Choose a ${kind} first`); return; }
   editingPlayerKind = kind;
+  const battingTeam = $('half').value === 'Top' ? 'away' : 'home';
+  const fieldingTeam = battingTeam === 'away' ? 'home' : 'away';
+  const team = kind === 'batter' ? battingTeam : fieldingTeam;
+  const collection = kind === 'batter' ? state.lineups[team].batters : state.lineups[team].pitchers;
+  editingPlayer = collection.find(p => p.name === select.value) || null;
   $('renameTitle').textContent = `Rename ${kind}`;
   $('renameInput').value = select.value;
+  $('renameNumber').value = editingPlayer?.number || '';
   $('renameDialog').showModal();
   $('renameInput').focus();
   $('renameInput').select();
@@ -495,16 +502,18 @@ $('closeRename').addEventListener('click', () => $('renameDialog').close());
 $('cancelRename').addEventListener('click', () => $('renameDialog').close());
 $('renameDialog').addEventListener('click', (event) => { if (event.target === $('renameDialog')) $('renameDialog').close(); });
 $('renameInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); $('saveRename').click(); } });
+$('renameNumber').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); $('saveRename').click(); } });
 $('saveRename').addEventListener('click', () => {
   const newName = $('renameInput').value.trim();
+  const newNumber = $('renameNumber').value.trim();
   if (!newName || !editingPlayerKind) return;
   const oldName = $(editingPlayerKind).value;
   const battingTeam = $('half').value === 'Top' ? 'away' : 'home';
   const fieldingTeam = battingTeam === 'away' ? 'home' : 'away';
   const team = editingPlayerKind === 'batter' ? battingTeam : fieldingTeam;
   const collection = editingPlayerKind === 'batter' ? state.lineups[team].batters : state.lineups[team].pitchers;
-  const player = collection.find(p => p.name === oldName);
-  if (player) player.name = newName;
+  const player = editingPlayer || collection.find(p => p.name === oldName);
+  if (player) { player.name = newName; player.number = newNumber; }
   if (editingPlayerKind === 'pitcher' && state.selectedPitchers[team] === oldName) state.selectedPitchers[team] = newName;
   state.pitches.forEach(pitch => {
     const linkedById = player?.id && pitch[`${editingPlayerKind}Id`] === player.id;
@@ -512,11 +521,13 @@ $('saveRename').addEventListener('click', () => {
     if (linkedById || legacyMatch) {
       pitch[`${editingPlayerKind}Id`] = player?.id || '';
       pitch[editingPlayerKind] = newName;
+      pitch[`${editingPlayerKind}Number`] = newNumber;
     }
   });
   renderLineupOptions();
   $(editingPlayerKind).value = newName;
-  render(); save(); $('renameDialog').close(); showToast(`${oldName} renamed to ${newName}`);
+  editingPlayer = null;
+  render(); save(); $('renameDialog').close(); showToast(`${oldName} updated`);
 });
 
 function choose(container, selector, callback) {
@@ -627,16 +638,18 @@ function updateResetButtonState() {
 
 function setPanelVisibility(panel, hidden) {
   state.uiHidden[panel] = hidden;
-  const body = panel === 'zone' ? $('zoneBody') : $('historyBody');
-  const button = panel === 'zone' ? $('toggleZone') : $('toggleHistory');
+  const body = panel === 'zone' ? $('zoneBody') : panel === 'boxScore' ? $('boxScoreBody') : $('historyBody');
+  const button = panel === 'zone' ? $('toggleZone') : panel === 'boxScore' ? $('toggleBoxScore') : $('toggleHistory');
   body.hidden = hidden;
-  button.textContent = hidden ? `Show ${panel === 'zone' ? 'zone' : 'history'}` : `Hide ${panel === 'zone' ? 'zone' : 'history'}`;
+  const label = panel === 'zone' ? 'zone' : panel === 'boxScore' ? 'stats' : 'history';
+  button.textContent = hidden ? `Show ${label}` : `Hide ${label}`;
   button.setAttribute('aria-expanded', String(!hidden));
   save();
 }
 
 $('toggleZone').addEventListener('click', () => setPanelVisibility('zone', !state.uiHidden.zone));
 $('toggleHistory').addEventListener('click', () => setPanelVisibility('history', !state.uiHidden.history));
+$('toggleBoxScore').addEventListener('click', () => setPanelVisibility('boxScore', !state.uiHidden.boxScore));
 
 $('ballCount').closest('.count-editor').addEventListener('click', (event) => {
   const button = event.target.closest('[data-count-kind]');
@@ -1070,13 +1083,36 @@ function boxScoreStats() {
 }
 
 function scorecardPlayers(team, atBatsByInning) {
-  const players = state.lineups[team].batters.map((player, index) => ({
-    key: player.id || `${team}:lineup:${index}`,
-    order: index + 1,
-    name: player.name || `Player ${index + 1}`,
-    number: player.number || '',
-    position: player.position || ''
-  }));
+  const players = [];
+  state.lineups[team].batters.forEach((player, index) => {
+    if (player.substitutedFor) {
+      players.push({
+        key: `${team}:name:${player.substitutedFor}`,
+        order: index + 1,
+        name: player.substitutedFor,
+        number: player.substitutedForNumber || '',
+        position: player.substitutedForPosition || player.position || '',
+        note: 'Started'
+      });
+      players.push({
+        key: player.id || `${team}:lineup:${index}:sub`,
+        order: `${index + 1}S`,
+        name: player.name || `Sub for ${player.substitutedFor}`,
+        number: player.number || '',
+        position: player.position || '',
+        note: `Entered ${player.substitutionAt || ''}`.trim()
+      });
+      return;
+    }
+    players.push({
+      key: player.id || `${team}:lineup:${index}`,
+      order: index + 1,
+      name: player.name || `Player ${index + 1}`,
+      number: player.number || '',
+      position: player.position || '',
+      note: ''
+    });
+  });
   atBatsByInning.filter(item => item.battingTeam === team).forEach(({pitch}) => {
     const key = pitch.batterId || `${team}:name:${pitch.batter || 'unknown'}`;
     if (players.some(player => player.key === key || (pitch.batter && player.name === pitch.batter))) return;
@@ -1085,7 +1121,8 @@ function scorecardPlayers(team, atBatsByInning) {
       order: players.length + 1,
       name: pitch.batter || '—',
       number: pitch.batterNumber || '',
-      position: ''
+      position: '',
+      note: 'Not in current lineup'
     });
   });
   return players;
@@ -1110,7 +1147,7 @@ function renderScorecardTeam(team, atBatsByInning, innings) {
         <tbody>${players.map((player) => `
           <tr>
             <td class="scorecard-order">${player.order}</td>
-            <td class="scorecard-player">${player.number ? `#${escapeHtml(player.number)} ` : ''}${escapeHtml(player.name)}</td>
+            <td class="scorecard-player">${player.number ? `#${escapeHtml(player.number)} ` : ''}${escapeHtml(player.name)}${player.note ? `<small>${escapeHtml(player.note)}</small>` : ''}</td>
             <td class="scorecard-pos">${escapeHtml(player.position || '—')}</td>
             ${innings.map((inning) => {
               const codes = cells.get(`${player.key}:${inning}`) || [];
@@ -1162,10 +1199,13 @@ function render() {
   $('ballCount').textContent = state.balls; $('strikeCount').textContent = state.strikes;
   $('zoneBody').hidden = state.uiHidden.zone;
   $('historyBody').hidden = state.uiHidden.history;
+  $('boxScoreBody').hidden = state.uiHidden.boxScore;
   $('toggleZone').textContent = state.uiHidden.zone ? 'Show zone' : 'Hide zone';
   $('toggleHistory').textContent = state.uiHidden.history ? 'Show history' : 'Hide history';
+  $('toggleBoxScore').textContent = state.uiHidden.boxScore ? 'Show stats' : 'Hide stats';
   $('toggleZone').setAttribute('aria-expanded', String(!state.uiHidden.zone));
   $('toggleHistory').setAttribute('aria-expanded', String(!state.uiHidden.history));
+  $('toggleBoxScore').setAttribute('aria-expanded', String(!state.uiHidden.boxScore));
   $('pitchNumber').textContent = `#${state.pitches.length + 1}`;
   $('emptyState').hidden = state.pitches.length > 0;
   $('undoButton').disabled = state.pitches.length === 0;

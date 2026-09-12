@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=31">
+  <link rel="stylesheet" href="styles.css?v=32">
 </head>
 <body>
   <header class="topbar">
@@ -175,7 +175,10 @@
     <section class="panel box-score-panel">
       <div class="panel-heading log-heading">
         <div><p class="eyebrow">Live game stats</p><h2>Box score</h2></div>
-        <div class="summary" id="boxScoreSummary"><span><b>0</b> PA</span><span><b>0</b> hits</span><span><b>0</b> K</span></div>
+        <div class="panel-tools">
+          <button class="toggle-panel" id="toggleBoxScore" type="button" aria-expanded="true">Hide stats</button>
+          <div class="summary" id="boxScoreSummary"><span><b>0</b> PA</span><span><b>0</b> hits</span><span><b>0</b> K</span></div>
+        </div>
       </div>
       <div class="box-score-body" id="boxScoreBody">
         <div class="box-score-grid">
@@ -300,9 +303,10 @@
     </div>
     <div class="rename-body">
       <label class="rename-field"><span>Player name</span><input id="renameInput" maxlength="50" autocomplete="off"></label>
+      <label class="rename-field"><span>Jersey number</span><input id="renameNumber" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="#"></label>
       <p>This updates the dropdown and any pitches already recorded for this player.</p>
     </div>
-    <div class="dialog-actions rename-actions"><button class="button dialog-cancel" id="cancelRename">Cancel</button><button class="button button-primary" id="saveRename">Save name</button></div>
+    <div class="dialog-actions rename-actions"><button class="button dialog-cancel" id="cancelRename">Cancel</button><button class="button button-primary" id="saveRename">Save player</button></div>
   </dialog>
 
   <dialog class="install-dialog" id="installDialog">
@@ -350,7 +354,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=31"></script>
-  <script src="app.js?v=31"></script>
+  <script src="pdf-export.js?v=32"></script>
+  <script src="app.js?v=32"></script>
 </body>
 </html>
