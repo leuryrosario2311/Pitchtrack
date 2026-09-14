@@ -58,6 +58,36 @@ function currentGameData() {
   };
 }
 
+function currentGameSituation() {
+  return {
+    balls: state.balls,
+    strikes: state.strikes,
+    outs: state.outs,
+    inning: $('inning').value,
+    half: $('half').value,
+    pitcher: $('pitcher').value,
+    batter: $('batter').value,
+    bats: $('bats').value,
+    battingIndexes: clone(state.battingIndexes),
+    selectedPitchers: clone(state.selectedPitchers)
+  };
+}
+
+function restoreGameSituation(situation) {
+  state.balls = situation.balls;
+  state.strikes = situation.strikes;
+  state.outs = situation.outs;
+  state.battingIndexes = clone(situation.battingIndexes);
+  state.selectedPitchers = clone(situation.selectedPitchers);
+  $('inning').value = situation.inning;
+  $('half').value = situation.half;
+  renderLineupOptions();
+  if ([...$('pitcher').options].some(option => option.value === situation.pitcher)) $('pitcher').value = situation.pitcher;
+  if ([...$('batter').options].some(option => option.value === situation.batter)) $('batter').value = situation.batter;
+  $('bats').value = situation.bats || 'R';
+  updateOutButtons();
+}
+
 function gameTitle(data = currentGameData()) {
   const home = data.fields?.homeTeam?.trim() || 'Home';
   const away = data.fields?.awayTeam?.trim() || 'Away';
@@ -834,6 +864,7 @@ function replayGameState() {
 
 $('saveEditPitch').addEventListener('click', () => {
   if (editingPitchIndex < 0) return;
+  const currentSituation = currentGameSituation();
   const result = $('editResult').value;
   const pitch = state.pitches[editingPitchIndex];
   const battingTeam = pitch.half === 'Top' ? 'away' : 'home';
@@ -858,7 +889,9 @@ $('saveEditPitch').addEventListener('click', () => {
   pitch.errorLocation = result === 'Error' ? $('editErrorPosition').value : '';
   pitch.note = $('editNote').value.trim();
   pitch.location = editingPitchLocation ? {...editingPitchLocation} : null;
-  replayGameState(); render(); save(); $('editPitchDialog').close(); showToast(`Pitch #${pitch.number} updated`);
+  replayGameState();
+  restoreGameSituation(currentSituation);
+  render(); save(); $('editPitchDialog').close(); showToast(`Pitch #${pitch.number} updated`);
 });
 
 $('recordButton').addEventListener('click', () => {
@@ -868,6 +901,7 @@ $('recordButton').addEventListener('click', () => {
   const pitcherPlayer = state.lineups[fieldingTeam].pitchers.find(player => player.name === $('pitcher').value);
   const recordedAt = new Date();
   const recordedResult = state.result || (state.contactType ? 'In play' : 'Not recorded');
+  const situationBeforePitch = currentGameSituation();
   if (resultWouldChangeInning(recordedResult) && !confirm('This pitch will make 3 outs and move to the next half inning. Continue?')) {
     showToast('Pitch not recorded');
     return;
@@ -885,9 +919,15 @@ $('recordButton').addEventListener('click', () => {
   };
   state.pitches.push(pitch);
   const outcome = advanceGame(pitch.result);
-  if (confirmBatterAdvance(outcome, battingTeam)) {
-    if (outcome.plateAppearanceEnded) moveToNextBatter(false, battingTeam);
+  if (!confirmBatterAdvance(outcome, battingTeam)) {
+    state.pitches.pop();
+    restoreGameSituation(situationBeforePitch);
+    render();
+    save();
+    showToast('Pitch not recorded');
+    return;
   }
+  if (outcome.plateAppearanceEnded) moveToNextBatter(false, battingTeam);
   if (outcome.inningChanged) syncPlayersForHalf();
   state.location = null; state.result = null; state.contactType = null; state.outLocation = ''; state.errorLocation = '';
   $('crosshair').classList.remove('visible');
