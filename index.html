@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#102820">
+  <meta name="theme-color" content="#0b1f3a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="PitchTrack">
@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=34">
+  <link rel="stylesheet" href="styles.css?v=35">
 </head>
 <body>
   <header class="topbar">
@@ -24,6 +24,7 @@
       <label>Away <input id="awayTeam" placeholder="Away team"></label>
       <label>Date <input id="gameDate" type="date"></label>
     </div>
+    <button class="button switch-teams-button" id="switchTeams" type="button">⇄ Switch Home/Away</button>
     <button class="button install-button" id="installButton">＋ Install App</button>
     <button class="button button-ghost" id="gamesButton">Games</button>
     <button class="button button-lineup" id="lineupButton">☷ Lineups</button>
@@ -355,7 +356,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=34"></script>
-  <script src="app.js?v=34"></script>
+  <script src="pdf-export.js?v=35"></script>
+  <script src="app.js?v=35"></script>
 </body>
 </html>

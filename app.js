@@ -419,6 +419,19 @@ function pitchBelongsToTeam(pitch, kind, team) {
   return playerTeam === team;
 }
 
+function normalizePlayerName(name) {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function playerMatchesPitch(player, pitch, kind) {
+  const pitchId = pitch[`${kind}Id`];
+  const pitchName = pitch[kind];
+  const pitchNumber = pitch[`${kind}Number`];
+  return (pitchId && player.key === pitchId) ||
+    (pitchName && normalizePlayerName(player.name) === normalizePlayerName(pitchName)) ||
+    (pitchNumber && player.number && String(player.number) === String(pitchNumber));
+}
+
 function propagateLineupChanges(previousLineups) {
   if (!previousLineups) return;
   ['home', 'away'].forEach((team) => {
@@ -478,6 +491,57 @@ $('exportStatsPdf').addEventListener('click', () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   showToast('Live stats PDF exported');
+});
+
+function relinkPitchesToCurrentLineups() {
+  state.pitches.forEach((pitch) => {
+    const battingTeam = pitchBattingTeam(pitch);
+    const fieldingTeam = pitchFieldingTeam(pitch);
+    const batter = state.lineups[battingTeam].batters.find(player => (
+      (pitch.batterId && player.id === pitch.batterId) ||
+      (pitch.batter && normalizePlayerName(player.name) === normalizePlayerName(pitch.batter)) ||
+      (pitch.batterNumber && player.number && String(player.number) === String(pitch.batterNumber))
+    ));
+    const pitcher = state.lineups[fieldingTeam].pitchers.find(player => (
+      (pitch.pitcherId && player.id === pitch.pitcherId) ||
+      (pitch.pitcher && normalizePlayerName(player.name) === normalizePlayerName(pitch.pitcher)) ||
+      (pitch.pitcherNumber && player.number && String(player.number) === String(pitch.pitcherNumber))
+    ));
+    if (batter) {
+      pitch.batterId = batter.id;
+      pitch.batter = batter.name || pitch.batter;
+      pitch.batterNumber = batter.number || pitch.batterNumber || '';
+      pitch.bats = batter.bats || pitch.bats;
+    }
+    if (pitcher) {
+      pitch.pitcherId = pitcher.id;
+      pitch.pitcher = pitcher.name || pitch.pitcher;
+      pitch.pitcherNumber = pitcher.number || pitch.pitcherNumber || '';
+    }
+  });
+}
+
+$('switchTeams').addEventListener('click', () => {
+  if (!confirm('Switch Home and Away for this game? This will swap team names, lineups, and pitcher selections.')) return;
+  const oldHomeName = $('homeTeam').value;
+  $('homeTeam').value = $('awayTeam').value;
+  $('awayTeam').value = oldHomeName;
+  [state.lineups.home, state.lineups.away] = [state.lineups.away, state.lineups.home];
+  [state.battingIndexes.home, state.battingIndexes.away] = [state.battingIndexes.away, state.battingIndexes.home];
+  [state.selectedPitchers.home, state.selectedPitchers.away] = [state.selectedPitchers.away, state.selectedPitchers.home];
+  editingTeam = editingTeam === 'home' ? 'away' : 'home';
+  $('teamTabs').querySelectorAll('.team-tab').forEach((button) => {
+    const active = button.dataset.team === editingTeam;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  relinkPitchesToCurrentLineups();
+  renderLineupOptions();
+  syncPlayersForHalf();
+  updateLineupLabels();
+  render();
+  save();
+  showToast('Home and Away switched');
 });
 
 function setBatter(player) { $('batter').value = player.name; $('bats').value = player.bats; }
@@ -1138,7 +1202,7 @@ function scorecardPlayers(team, atBatsByInning) {
   state.lineups[team].batters.forEach((player, index) => {
     if (player.substitutedFor) {
       players.push({
-        key: `${team}:name:${player.substitutedFor}`,
+        key: `${team}:name:${normalizePlayerName(player.substitutedFor)}`,
         order: index + 1,
         name: player.substitutedFor,
         number: player.substitutedForNumber || '',
@@ -1166,7 +1230,7 @@ function scorecardPlayers(team, atBatsByInning) {
   });
   atBatsByInning.filter(item => item.battingTeam === team).forEach(({pitch}) => {
     const key = pitch.batterId || `${team}:name:${pitch.batter || 'unknown'}`;
-    if (players.some(player => player.key === key || (pitch.batter && player.name === pitch.batter))) return;
+    if (players.some(player => playerMatchesPitch(player, pitch, 'batter'))) return;
     players.push({
       key,
       order: players.length + 1,
@@ -1184,7 +1248,7 @@ function renderScorecardTeam(team, atBatsByInning, innings) {
   const cells = new Map();
   atBatsByInning.filter(item => item.battingTeam === team).forEach((item) => {
     const key = item.pitch.batterId || `${team}:name:${item.pitch.batter || 'unknown'}`;
-    const player = players.find(entry => entry.key === key || (item.pitch.batter && entry.name === item.pitch.batter));
+    const player = players.find(entry => playerMatchesPitch(entry, item.pitch, 'batter'));
     const cellKey = `${player?.key || key}:${item.pitch.inning}`;
     if (!cells.has(cellKey)) cells.set(cellKey, []);
     cells.get(cellKey).push(item.code);
@@ -1214,7 +1278,7 @@ function scorecardPdfData(team, atBatsByInning, innings) {
   const cells = new Map();
   atBatsByInning.filter(item => item.battingTeam === team).forEach((item) => {
     const key = item.pitch.batterId || `${team}:name:${item.pitch.batter || 'unknown'}`;
-    const player = players.find(entry => entry.key === key || (item.pitch.batter && entry.name === item.pitch.batter));
+    const player = players.find(entry => playerMatchesPitch(entry, item.pitch, 'batter'));
     const cellKey = `${player?.key || key}:${item.pitch.inning}`;
     if (!cells.has(cellKey)) cells.set(cellKey, []);
     cells.get(cellKey).push(item.code);
