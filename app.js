@@ -18,6 +18,7 @@ const state = {
 };
 let editingTeam = 'away';
 let lineupSnapshot = null;
+let lineupSituationSnapshot = null;
 let activeGameId = '';
 let savedGames = [];
 
@@ -290,6 +291,7 @@ function updateLineupCount() {
 
 $('lineupButton').addEventListener('click', () => {
   lineupSnapshot = JSON.parse(JSON.stringify(state.lineups));
+  lineupSituationSnapshot = currentGameSituation();
   buildLineupEditor(); $('lineupDialog').showModal();
 });
 $('teamTabs').addEventListener('click', (event) => {
@@ -306,8 +308,9 @@ $('teamTabs').addEventListener('click', (event) => {
 });
 function cancelLineupChanges() {
   if (lineupSnapshot) state.lineups = JSON.parse(JSON.stringify(lineupSnapshot));
+  if (lineupSituationSnapshot) restoreGameSituation(lineupSituationSnapshot);
   lineupSnapshot = null;
-  syncPlayersForHalf();
+  lineupSituationSnapshot = null;
   $('lineupDialog').close();
 }
 $('closeLineup').addEventListener('click', cancelLineupChanges);
@@ -458,11 +461,14 @@ function propagateLineupChanges(previousLineups) {
 }
 
 $('saveLineup').addEventListener('click', () => {
+  const currentSituation = lineupSituationSnapshot || currentGameSituation();
   readLineupEditor();
   propagateLineupChanges(lineupSnapshot);
   lineupSnapshot = null;
+  lineupSituationSnapshot = null;
   renderLineupOptions(); save(); $('lineupDialog').close();
   syncPlayersForHalf();
+  restoreGameSituation(currentSituation);
   render(); save(); showToast('Lineups and pitch history updated');
 });
 $('exportLineupsPdf').addEventListener('click', () => {
