@@ -986,6 +986,29 @@ $('saveEditPitch').addEventListener('click', () => {
   const result = $('editResult').value;
   const pitch = state.pitches[editingPitchIndex];
   const scoredResult = scoredResultForCount(result, pitch.count);
+  const oldResult = pitch.result;
+  const oldOutcome = pitchOutcome(pitch);
+  const editedOutcome = pitchOutcome({...pitch, result: scoredResult});
+  const isLastPitch = editingPitchIndex === state.pitches.length - 1;
+  const situationBeforeEdit = situationBeforePitch(pitch);
+  const resultChanged = oldResult !== scoredResult;
+  const changesGameSituation = resultChanged && (
+    isLastPitch ||
+    oldOutcome.terminal !== editedOutcome.terminal ||
+    outcomeOuts(oldOutcome) !== outcomeOuts(editedOutcome) ||
+    resultAffectsGameFlow(oldResult) ||
+    resultAffectsGameFlow(scoredResult)
+  );
+  if (changesGameSituation) {
+    const label = outcomeLabel(editedOutcome, scoredResult);
+    const inningWillChange = outcomeOuts(editedOutcome) > 0 && situationBeforeEdit.outs + outcomeOuts(editedOutcome) >= 3;
+    if (isLastPitch) {
+      const message = `This edit changes the last pitch to ${label}. The app will update the live count, outs, batter, and inning if needed.${inningWillChange ? ' It may also move to the next half inning.' : ''} Continue?`;
+      if (!confirm(message)) return;
+    } else if (!confirm(`This is an older pitch. Stats and CSV will update to ${label}, but the current live batter/outs will not be moved because later pitches already happened. Continue?`)) {
+      return;
+    }
+  }
   const battingTeam = pitch.half === 'Top' ? 'away' : 'home';
   const fieldingTeam = battingTeam === 'away' ? 'home' : 'away';
   const selectedPitcher = selectedLineupPlayer('editPitcherName', state.lineups[fieldingTeam].pitchers);
@@ -1011,7 +1034,14 @@ $('saveEditPitch').addEventListener('click', () => {
   pitch.note = $('editNote').value.trim();
   pitch.location = editingPitchLocation ? {...editingPitchLocation} : null;
   restoreCsvContext(csvContext);
-  restoreGameSituation(currentSituation);
+  if (isLastPitch && changesGameSituation) {
+    restoreGameSituation(situationBeforeEdit);
+    const outcome = advanceGame(pitch.result);
+    if (outcome.plateAppearanceEnded) moveToNextBatter(false, battingTeam);
+    if (outcome.inningChanged) syncPlayersForHalf();
+  } else {
+    restoreGameSituation(currentSituation);
+  }
   render(); save(); $('editPitchDialog').close(); showToast(`Pitch #${pitch.number} updated`);
 });
 
@@ -1076,7 +1106,7 @@ function advanceGame(result) {
   if (result === 'Ball') state.balls++;
   if (['Called strike', 'Swinging strike'].includes(result)) state.strikes++;
   if (result === 'Foul' && state.strikes < 2) state.strikes++;
-  if (state.balls >= 4) { plateAppearanceEnded = true; label = 'Walk'; }
+  if (state.balls >= 4 || result === 'Walk') { plateAppearanceEnded = true; label = 'Walk'; }
   if (result === 'HBP') { plateAppearanceEnded = true; label = 'HBP'; }
   if (state.strikes >= 3 || result === 'Strikeout') { plateAppearanceEnded = true; outRecorded = true; label = 'Strikeout'; }
   if (result === 'In play - out') { plateAppearanceEnded = true; outRecorded = true; label = 'Out in play'; }
@@ -1141,9 +1171,60 @@ function countBefore(pitch) {
 }
 
 function scoredResultForCount(result, count) {
-  const [, strikes = 0] = String(count || '0-0').split('-').map(Number);
+  const [balls = 0, strikes = 0] = String(count || '0-0').split('-').map(Number);
+  if (result === 'Ball' && balls >= 3) return 'Walk';
   if (['Called strike', 'Swinging strike'].includes(result) && strikes >= 2) return 'Strikeout';
   return result;
+}
+
+function outcomeOuts(outcome) {
+  if (outcome.dp) return 2;
+  return (outcome.strikeout || outcome.out) ? 1 : 0;
+}
+
+function outcomeLabel(outcome, result) {
+  if (outcome.walk) return 'walk';
+  if (outcome.strikeout) return 'strikeout';
+  if (outcome.hbp) return 'HBP';
+  if (outcome.hit) return result;
+  if (outcome.dp) return 'double play';
+  if (outcome.out) return 'out';
+  if (outcome.error) return 'error';
+  return result || 'pitch';
+}
+
+function resultAffectsGameFlow(result) {
+  return ['Ball', 'Walk', 'Called strike', 'Swinging strike', 'Foul', 'Strikeout', 'HBP', 'Single', 'Double', 'Triple', 'Home run', 'In play - hit', 'In play - out', 'Double play', 'Error'].includes(result);
+}
+
+function situationBeforePitch(pitch) {
+  const situation = currentGameSituation();
+  const {balls, strikes} = countBefore(pitch);
+  const battingTeam = pitchBattingTeam(pitch);
+  const fieldingTeam = pitchFieldingTeam(pitch);
+  const order = state.lineups[battingTeam].batters.filter(player => player.name);
+  const batterIndex = order.findIndex(player => (
+    (pitch.batterId && player.id === pitch.batterId) ||
+    (pitch.batter && normalizePlayerName(player.name) === normalizePlayerName(pitch.batter)) ||
+    (pitch.batterNumber && player.number && String(player.number) === String(pitch.batterNumber))
+  ));
+  const pitchers = state.lineups[fieldingTeam].pitchers.filter(player => player.name);
+  const pitcher = pitchers.find(player => (
+    (pitch.pitcherId && player.id === pitch.pitcherId) ||
+    (pitch.pitcher && normalizePlayerName(player.name) === normalizePlayerName(pitch.pitcher)) ||
+    (pitch.pitcherNumber && player.number && String(player.number) === String(pitch.pitcherNumber))
+  ));
+  situation.balls = balls;
+  situation.strikes = strikes;
+  situation.outs = Number(pitch.outs) || 0;
+  situation.inning = pitchInning(pitch);
+  situation.half = pitchHalf(pitch);
+  situation.pitcher = pitcher?.name || pitch.pitcher || '';
+  situation.batter = order[batterIndex]?.name || pitch.batter || '';
+  situation.bats = order[batterIndex]?.bats || pitch.bats || 'R';
+  if (batterIndex >= 0) situation.battingIndexes[battingTeam] = batterIndex;
+  if (pitcher) situation.selectedPitchers[fieldingTeam] = pitcher.name;
+  return situation;
 }
 
 function blankBattingStats(label, team) {
@@ -1165,7 +1246,7 @@ function isStrikeResult(result) {
 function pitchOutcome(pitch) {
   const {balls, strikes} = countBefore(pitch);
   const result = pitch.result;
-  const walk = result === 'Ball' && balls >= 3;
+  const walk = result === 'Walk' || (result === 'Ball' && balls >= 3);
   const strikeout = result === 'Strikeout' || (['Called strike', 'Swinging strike'].includes(result) && strikes >= 2);
   const hbp = result === 'HBP';
   const hit = isHitResult(result);
