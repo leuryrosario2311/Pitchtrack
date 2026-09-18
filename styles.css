@@ -5,7 +5,7 @@
 }
 * { box-sizing: border-box; }
 html { width: 100%; max-width: 100%; overflow-x: hidden; }
-body { width: 100%; max-width: 100%; margin: 0; overflow-x: hidden; color: var(--ink); background: var(--paper); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { width: 100%; max-width: 100%; margin: 0; padding-bottom: 82px; overflow-x: hidden; color: var(--ink); background: var(--paper); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 .topbar { min-height: 72px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; padding: 12px clamp(16px,3vw,42px); color: white; background: var(--green); overflow-x: clip; }
@@ -102,7 +102,7 @@ legend, .field span { display: block; margin-bottom: 9px; color: #43504a; font-s
 .position-grid button { min-width: 0; min-height: 38px; padding: 6px 2px; color: var(--green); background: white; border: 1px solid var(--line); border-radius: 6px; font-size: 10px; font-weight: 900; }
 .position-grid button:hover { border-color: var(--green-2); }
 .position-grid button.selected { color: white; border-color: var(--green); background: var(--green); }
-.record { position: sticky; bottom: max(10px,env(safe-area-inset-bottom)); z-index: 20; display: flex; justify-content: space-between; width: 100%; min-height: 50px; margin-top: 24px; padding: 14px 18px; color: white; background: var(--green); box-shadow: 0 8px 22px rgba(18,63,49,.24); }
+.record { position: fixed; right: max(14px,env(safe-area-inset-right)); bottom: max(12px,env(safe-area-inset-bottom)); z-index: 1000; display: flex; justify-content: space-between; width: min(390px,calc(100vw - 28px)); min-height: 54px; margin-top: 24px; padding: 15px 18px; color: white; background: var(--green); box-shadow: 0 12px 30px rgba(18,63,49,.32); }
 .record:hover:not(:disabled) { background: var(--green-2); }.record:disabled { cursor: not-allowed; opacity: .38; }
 .box-score-panel { position: relative; max-width: 100%; margin-top: 18px; overflow: hidden; }
 .box-score-body { position: relative; max-width: 100%; padding: 0 0 16px; overflow-x: clip; }
@@ -239,7 +239,7 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
 .edit-pitch-fields .edit-note { grid-column: 1 / -1; }
 @media (max-width: 900px) { .game-meta { order: 3; width: 100%; }.game-meta label { flex: 1; }.game-meta input { width: 100%; }.score-strip { grid-template-columns: repeat(3,1fr); }.workspace { grid-template-columns: 1fr; }.entry-panel { order: -1; }.zone-wrap { grid-template-columns: 25px minmax(220px,430px) 25px; }.summary { gap: 12px; } }
 @media (max-width: 760px) {
-  body { padding-bottom: env(safe-area-inset-bottom); }
+  body { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
   .topbar { gap: 8px; padding: 10px max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left)); }
   .brand { font-size: 18px; }
   .brand-mark { width: 34px; height: 34px; }
@@ -258,7 +258,7 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
   .position-grid { grid-template-columns: repeat(5,1fr); }
   .position-grid button { min-height: 44px; }
   .field input, .field select { min-height: 46px; }
-  .record { bottom: max(8px,env(safe-area-inset-bottom)); }
+  .record { right: max(10px,env(safe-area-inset-right)); bottom: max(8px,env(safe-area-inset-bottom)); width: min(390px,calc(100vw - 20px)); }
   .log-panel { margin-top: 10px; }
   .box-score-panel { margin-top: 10px; }
   .box-score-grid { grid-template-columns: 1fr; padding-inline: 12px; }
