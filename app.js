@@ -985,6 +985,7 @@ $('saveEditPitch').addEventListener('click', () => {
   const csvContext = csvContextSnapshot();
   const result = $('editResult').value;
   const pitch = state.pitches[editingPitchIndex];
+  const scoredResult = scoredResultForCount(result, pitch.count);
   const battingTeam = pitch.half === 'Top' ? 'away' : 'home';
   const fieldingTeam = battingTeam === 'away' ? 'home' : 'away';
   const selectedPitcher = selectedLineupPlayer('editPitcherName', state.lineups[fieldingTeam].pitchers);
@@ -1003,10 +1004,10 @@ $('saveEditPitch').addEventListener('click', () => {
   pitch.type = $('editPitchType').value;
   pitch.group = pitchGroupForType(pitch.type);
   pitch.velocity = $('editVelocity').value;
-  pitch.result = result;
-  pitch.contactType = isInPlayResult(result) ? $('editContact').value : '';
-  pitch.outLocation = ['In play - out', 'Double play'].includes(result) ? $('editOutPosition').value : '';
-  pitch.errorLocation = result === 'Error' ? $('editErrorPosition').value : '';
+  pitch.result = scoredResult;
+  pitch.contactType = isInPlayResult(scoredResult) ? $('editContact').value : '';
+  pitch.outLocation = ['In play - out', 'Double play'].includes(scoredResult) ? $('editOutPosition').value : '';
+  pitch.errorLocation = scoredResult === 'Error' ? $('editErrorPosition').value : '';
   pitch.note = $('editNote').value.trim();
   pitch.location = editingPitchLocation ? {...editingPitchLocation} : null;
   restoreCsvContext(csvContext);
@@ -1023,6 +1024,8 @@ $('recordButton').addEventListener('click', () => {
   const pitcherOrder = pitcherPlayer ? state.lineups[fieldingTeam].pitchers.findIndex(player => player.id === pitcherPlayer.id) + 1 : '';
   const recordedAt = new Date();
   const recordedResult = state.result || (state.contactType ? 'In play' : 'Not recorded');
+  const count = `${state.balls}-${state.strikes}`;
+  const scoredResult = scoredResultForCount(recordedResult, count);
   const situationBeforePitch = currentGameSituation();
   if (resultWouldChangeInning(recordedResult) && !confirm('This pitch will make 3 outs and move to the next half inning. Continue?')) {
     showToast('Pitch not recorded');
@@ -1032,11 +1035,11 @@ $('recordButton').addEventListener('click', () => {
     number: state.pitches.length + 1, inning: $('inning').value, half: $('half').value,
     time: recordedAt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}),
     recordedAt: recordedAt.toISOString(),
-    count: `${state.balls}-${state.strikes}`, outs: state.outs,
+    count, outs: state.outs,
     pitcher: $('pitcher').value.trim() || '—', pitcherId: pitcherPlayer?.id || '', pitcherNumber: pitcherPlayer?.number || '', pitcherOrder,
     batter: $('batter').value.trim() || '—', batterId: batterPlayer?.id || '', batterNumber: batterPlayer?.number || '', batterOrder, bats: $('bats').value,
     type: state.pitchType, group: state.pitchGroup, velocity: $('velocity').value || '',
-    result: recordedResult, contactType: state.contactType || '', outLocation: state.outLocation || '', errorLocation: state.errorLocation || '',
+    result: scoredResult, contactType: isInPlayResult(scoredResult) ? (state.contactType || '') : '', outLocation: ['In play - out', 'Double play'].includes(scoredResult) ? state.outLocation : '', errorLocation: scoredResult === 'Error' ? state.errorLocation : '',
     note: $('note').value.trim(), location: state.location ? {...state.location} : null
   };
   state.pitches.push(pitch);
@@ -1135,6 +1138,12 @@ function pitchFieldingTeam(pitch) {
 function countBefore(pitch) {
   const [balls = 0, strikes = 0] = String(pitch.count || '0-0').split('-').map(Number);
   return {balls, strikes};
+}
+
+function scoredResultForCount(result, count) {
+  const [, strikes = 0] = String(count || '0-0').split('-').map(Number);
+  if (['Called strike', 'Swinging strike'].includes(result) && strikes >= 2) return 'Strikeout';
+  return result;
 }
 
 function blankBattingStats(label, team) {
