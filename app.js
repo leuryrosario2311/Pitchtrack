@@ -23,6 +23,8 @@ let lineupSituationSnapshot = null;
 let activeGameId = '';
 let savedGames = [];
 let savedTeams = [];
+let editingSavedTeamId = null;
+let editingTeamRoster = null;
 
 const fields = ['homeTeam', 'awayTeam', 'gameDate', 'inning', 'half', 'pitcher', 'batter', 'bats'];
 const today = new Date();
@@ -261,7 +263,7 @@ function persistTeams() {
 function renderTeamsList() {
   if (!$('teamsList')) return;
   if (!savedTeams.length) {
-    $('teamsList').innerHTML = '<div class="teams-empty">No saved teams yet. Create a lineup, enter a team name, then save Home or Away lineup.</div>';
+    $('teamsList').innerHTML = '<div class="teams-empty">No saved teams yet. Enter a team name, tap Create / edit team, and add players.</div>';
     return;
   }
   $('teamsList').innerHTML = savedTeams.map((team) => {
@@ -270,12 +272,97 @@ function renderTeamsList() {
       <div class="team-row" data-team-id="${escapeHtml(team.id)}">
         <div><strong>${escapeHtml(team.name)}</strong><small>${counts.batters} batters · ${counts.pitchers} pitchers</small></div>
         <div class="team-row-actions">
+          <button class="game-action" data-edit-team type="button">Edit players</button>
           <button class="game-action" data-load-team="home" type="button">Load Home</button>
           <button class="game-action" data-load-team="away" type="button">Load Away</button>
           <button class="game-action danger" data-delete-team type="button">Delete</button>
         </div>
       </div>`;
   }).join('');
+}
+
+function blankTeamRoster() {
+  return {batters: [], pitchers: []};
+}
+
+function teamBatterRow(player = {}, index = 0) {
+  return `
+    <div class="team-player-row batter">
+      <span class="order-number">${index + 1}</span>
+      <input class="team-player-name" value="${escapeHtml(player.name || '')}" placeholder="Player name" maxlength="50">
+      <input class="team-player-number" value="${escapeHtml(player.number || '')}" placeholder="#" maxlength="3" inputmode="numeric">
+      <select class="team-player-position">${positionOptions(player.position || '')}</select>
+      <select class="team-player-bats"><option ${player.bats === 'R' ? 'selected' : ''}>R</option><option ${player.bats === 'L' ? 'selected' : ''}>L</option><option ${player.bats === 'S' ? 'selected' : ''}>S</option></select>
+      <button class="remove-player" data-remove-team-player type="button" title="Remove player">×</button>
+    </div>`;
+}
+
+function teamPitcherRow(player = {}, index = 0) {
+  return `
+    <div class="team-player-row pitcher">
+      <span class="order-number">${index + 1}</span>
+      <input class="team-player-name" value="${escapeHtml(player.name || '')}" placeholder="Pitcher name" maxlength="50">
+      <input class="team-player-number" value="${escapeHtml(player.number || '')}" placeholder="#" maxlength="3" inputmode="numeric">
+      <select class="team-player-throws"><option ${player.throws === 'R' ? 'selected' : ''}>R</option><option ${player.throws === 'L' ? 'selected' : ''}>L</option></select>
+      <button class="remove-player" data-remove-team-player type="button" title="Remove pitcher">×</button>
+    </div>`;
+}
+
+function renderTeamEditor() {
+  const name = $('teamNameInput').value.trim() || 'New team';
+  $('teamEditorTitle').textContent = `Edit ${name}`;
+  $('teamBatters').innerHTML = (editingTeamRoster?.batters || []).map(teamBatterRow).join('');
+  $('teamPitchers').innerHTML = (editingTeamRoster?.pitchers || []).map(teamPitcherRow).join('');
+  $('teamEditor').hidden = false;
+}
+
+function readTeamEditor() {
+  if (!editingTeamRoster) editingTeamRoster = blankTeamRoster();
+  editingTeamRoster.batters = [...$('teamBatters').querySelectorAll('.team-player-row')].map(row => ({
+    id: createPlayerId('batter'),
+    name: row.querySelector('.team-player-name').value.trim(),
+    number: row.querySelector('.team-player-number').value.trim(),
+    position: row.querySelector('.team-player-position').value.trim().toUpperCase(),
+    bats: row.querySelector('.team-player-bats').value
+  })).filter(player => player.name || player.number || player.position);
+  editingTeamRoster.pitchers = [...$('teamPitchers').querySelectorAll('.team-player-row')].map(row => ({
+    id: createPlayerId('pitcher'),
+    name: row.querySelector('.team-player-name').value.trim(),
+    number: row.querySelector('.team-player-number').value.trim(),
+    throws: row.querySelector('.team-player-throws').value
+  })).filter(player => player.name || player.number);
+}
+
+function beginTeamEdit(team = null) {
+  editingSavedTeamId = team?.id || null;
+  $('teamNameInput').value = team?.name || $('teamNameInput').value.trim() || '';
+  editingTeamRoster = team ? cleanLineupForTeam(team.lineup) : blankTeamRoster();
+  if (!editingTeamRoster.batters.length) editingTeamRoster.batters.push({name: '', number: '', position: '', bats: 'R'});
+  if (!editingTeamRoster.pitchers.length) editingTeamRoster.pitchers.push({name: '', number: '', throws: 'R'});
+  renderTeamEditor();
+  $('teamNameInput').focus();
+}
+
+function cancelTeamEdit() {
+  editingSavedTeamId = null;
+  editingTeamRoster = null;
+  $('teamEditor').hidden = true;
+}
+
+function saveTeamEditorRoster() {
+  const name = $('teamNameInput').value.trim();
+  if (!name) return showToast('Enter a team name first');
+  readTeamEditor();
+  if (!lineupHasRoster(editingTeamRoster)) return showToast('Add at least one player');
+  const existing = savedTeams.find(team => team.id === editingSavedTeamId || team.name.toLowerCase() === name.toLowerCase());
+  const record = {id: existing?.id || createTeamId(), name, updatedAt: new Date().toISOString(), lineup: cleanLineupForTeam(editingTeamRoster)};
+  if (existing) Object.assign(existing, record);
+  else savedTeams.unshift(record);
+  editingSavedTeamId = record.id;
+  editingTeamRoster = cleanLineupForTeam(record.lineup);
+  persistTeams();
+  renderTeamEditor();
+  showToast(`${name} saved`);
 }
 
 function saveLineupAsTeam(side) {
@@ -309,25 +396,54 @@ function loadTeamIntoSide(teamId, side) {
 
 $('teamsButton').addEventListener('click', () => {
   $('teamNameInput').value = '';
+  cancelTeamEdit();
   renderTeamsList();
   $('teamsDialog').showModal();
 });
 $('closeTeams').addEventListener('click', () => $('teamsDialog').close());
 $('cancelTeams').addEventListener('click', () => $('teamsDialog').close());
 $('teamsDialog').addEventListener('click', (event) => { if (event.target === $('teamsDialog')) $('teamsDialog').close(); });
+$('createTeamButton').addEventListener('click', () => beginTeamEdit());
 $('saveHomeTeam').addEventListener('click', () => saveLineupAsTeam('home'));
 $('saveAwayTeam').addEventListener('click', () => saveLineupAsTeam('away'));
+$('addTeamBatter').addEventListener('click', () => {
+  readTeamEditor();
+  editingTeamRoster.batters.push({name: '', number: '', position: '', bats: 'R'});
+  renderTeamEditor();
+  $('teamBatters').querySelector('.team-player-row:last-child .team-player-name')?.focus();
+});
+$('addTeamPitcher').addEventListener('click', () => {
+  readTeamEditor();
+  editingTeamRoster.pitchers.push({name: '', number: '', throws: 'R'});
+  renderTeamEditor();
+  $('teamPitchers').querySelector('.team-player-row:last-child .team-player-name')?.focus();
+});
+$('cancelTeamEdit').addEventListener('click', cancelTeamEdit);
+$('saveTeamRoster').addEventListener('click', saveTeamEditorRoster);
+$('teamEditor').addEventListener('click', (event) => {
+  const removeButton = event.target.closest('[data-remove-team-player]');
+  if (!removeButton) return;
+  readTeamEditor();
+  const list = removeButton.closest('#teamBatters') ? editingTeamRoster.batters : editingTeamRoster.pitchers;
+  const index = [...removeButton.closest('.team-player-list').querySelectorAll('.team-player-row')].indexOf(removeButton.closest('.team-player-row'));
+  list.splice(index, 1);
+  renderTeamEditor();
+});
 $('teamsList').addEventListener('click', (event) => {
   const row = event.target.closest('.team-row');
   if (!row) return;
   const teamId = row.dataset.teamId;
+  const team = savedTeams.find(item => item.id === teamId);
+  if (event.target.closest('[data-edit-team]')) {
+    if (team) beginTeamEdit(team);
+    return;
+  }
   const loadButton = event.target.closest('[data-load-team]');
   if (loadButton) {
     loadTeamIntoSide(teamId, loadButton.dataset.loadTeam);
     return;
   }
   if (event.target.closest('[data-delete-team]')) {
-    const team = savedTeams.find(item => item.id === teamId);
     if (!team || !confirm(`Delete saved team "${team.name}"?`)) return;
     savedTeams = savedTeams.filter(item => item.id !== teamId);
     persistTeams();
