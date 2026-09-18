@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'pitchtrack-game-v1';
 const GAMES_KEY = 'pitchtrack-games-v1';
+const TEAMS_KEY = 'pitchtrack-teams-v1';
 const $ = (id) => document.getElementById(id);
 let playerIdSeed = 0;
 const createPlayerId = (kind) => `${kind}-${Date.now().toString(36)}-${++playerIdSeed}`;
@@ -21,6 +22,7 @@ let lineupSnapshot = null;
 let lineupSituationSnapshot = null;
 let activeGameId = '';
 let savedGames = [];
+let savedTeams = [];
 
 const fields = ['homeTeam', 'awayTeam', 'gameDate', 'inning', 'half', 'pitcher', 'batter', 'bats'];
 const today = new Date();
@@ -38,6 +40,7 @@ function todayValue() {
 }
 
 function createGameId() { return `game-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
+function createTeamId() { return `team-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
 
 function blankGameData() {
   return {
@@ -205,6 +208,130 @@ $('gamesList').addEventListener('click', (event) => {
     }
     persistGames();
     showToast('Saved game deleted');
+  }
+});
+
+function teamPlayerCounts(lineup) {
+  const batters = (lineup?.batters || []).filter(player => player.name).length;
+  const pitchers = (lineup?.pitchers || []).filter(player => player.name).length;
+  return {batters, pitchers};
+}
+
+function lineupHasRoster(lineup) {
+  const counts = teamPlayerCounts(lineup);
+  return counts.batters || counts.pitchers;
+}
+
+function teamSideName(side) {
+  return $(side === 'home' ? 'homeTeam' : 'awayTeam').value.trim() || `${capitalize(side)} Team`;
+}
+
+function cleanLineupForTeam(lineup) {
+  return {
+    batters: clone(lineup.batters || []).map(player => ({
+      id: createPlayerId('batter'),
+      name: player.name || '',
+      number: player.number || '',
+      position: player.position || '',
+      bats: player.bats || 'R'
+    })),
+    pitchers: clone(lineup.pitchers || []).map(player => ({
+      id: createPlayerId('pitcher'),
+      name: player.name || '',
+      number: player.number || '',
+      throws: player.throws || 'R'
+    }))
+  };
+}
+
+function loadTeams() {
+  try {
+    const store = JSON.parse(localStorage.getItem(TEAMS_KEY));
+    savedTeams = Array.isArray(store?.teams) ? store.teams : [];
+  } catch (_) {
+    savedTeams = [];
+  }
+}
+
+function persistTeams() {
+  localStorage.setItem(TEAMS_KEY, JSON.stringify({teams: savedTeams}));
+  renderTeamsList();
+}
+
+function renderTeamsList() {
+  if (!$('teamsList')) return;
+  if (!savedTeams.length) {
+    $('teamsList').innerHTML = '<div class="teams-empty">No saved teams yet. Create a lineup, enter a team name, then save Home or Away lineup.</div>';
+    return;
+  }
+  $('teamsList').innerHTML = savedTeams.map((team) => {
+    const counts = teamPlayerCounts(team.lineup);
+    return `
+      <div class="team-row" data-team-id="${escapeHtml(team.id)}">
+        <div><strong>${escapeHtml(team.name)}</strong><small>${counts.batters} batters · ${counts.pitchers} pitchers</small></div>
+        <div class="team-row-actions">
+          <button class="game-action" data-load-team="home" type="button">Load Home</button>
+          <button class="game-action" data-load-team="away" type="button">Load Away</button>
+          <button class="game-action danger" data-delete-team type="button">Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function saveLineupAsTeam(side) {
+  const lineup = state.lineups[side];
+  if (!lineupHasRoster(lineup)) return showToast(`Add players to the ${side} lineup first`);
+  const name = $('teamNameInput').value.trim() || teamSideName(side);
+  const existing = savedTeams.find(team => team.name.toLowerCase() === name.toLowerCase());
+  const record = {id: existing?.id || createTeamId(), name, updatedAt: new Date().toISOString(), lineup: cleanLineupForTeam(lineup)};
+  if (existing) Object.assign(existing, record);
+  else savedTeams.unshift(record);
+  persistTeams();
+  showToast(`${name} saved`);
+}
+
+function loadTeamIntoSide(teamId, side) {
+  const team = savedTeams.find(item => item.id === teamId);
+  if (!team) return;
+  if (state.pitches.length && !confirm(`Load ${team.name} into ${capitalize(side)}? This changes the current game's ${side} lineup.`)) return;
+  state.lineups[side] = cleanLineupForTeam(team.lineup);
+  $(side === 'home' ? 'homeTeam' : 'awayTeam').value = team.name;
+  state.battingIndexes[side] = 0;
+  state.selectedPitchers[side] = '';
+  renderLineupOptions();
+  syncPlayersForHalf();
+  updateLineupLabels();
+  render();
+  save();
+  $('teamsDialog').close();
+  showToast(`${team.name} loaded to ${capitalize(side)}`);
+}
+
+$('teamsButton').addEventListener('click', () => {
+  $('teamNameInput').value = '';
+  renderTeamsList();
+  $('teamsDialog').showModal();
+});
+$('closeTeams').addEventListener('click', () => $('teamsDialog').close());
+$('cancelTeams').addEventListener('click', () => $('teamsDialog').close());
+$('teamsDialog').addEventListener('click', (event) => { if (event.target === $('teamsDialog')) $('teamsDialog').close(); });
+$('saveHomeTeam').addEventListener('click', () => saveLineupAsTeam('home'));
+$('saveAwayTeam').addEventListener('click', () => saveLineupAsTeam('away'));
+$('teamsList').addEventListener('click', (event) => {
+  const row = event.target.closest('.team-row');
+  if (!row) return;
+  const teamId = row.dataset.teamId;
+  const loadButton = event.target.closest('[data-load-team]');
+  if (loadButton) {
+    loadTeamIntoSide(teamId, loadButton.dataset.loadTeam);
+    return;
+  }
+  if (event.target.closest('[data-delete-team]')) {
+    const team = savedTeams.find(item => item.id === teamId);
+    if (!team || !confirm(`Delete saved team "${team.name}"?`)) return;
+    savedTeams = savedTeams.filter(item => item.id !== teamId);
+    persistTeams();
+    showToast('Team deleted');
   }
 });
 if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) $('installButton').hidden = true;
@@ -1670,6 +1797,7 @@ function ensurePlayerLinks() {
 }
 
 function load() {
+  loadTeams();
   try {
     const store = JSON.parse(localStorage.getItem(GAMES_KEY));
     if (store?.games?.length) {
