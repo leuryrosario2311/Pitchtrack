@@ -102,7 +102,7 @@ legend, .field span { display: block; margin-bottom: 9px; color: #43504a; font-s
 .position-grid button { min-width: 0; min-height: 38px; padding: 6px 2px; color: var(--green); background: white; border: 1px solid var(--line); border-radius: 6px; font-size: 10px; font-weight: 900; }
 .position-grid button:hover { border-color: var(--green-2); }
 .position-grid button.selected { color: white; border-color: var(--green); background: var(--green); }
-.record { display: flex; justify-content: space-between; width: 100%; margin-top: 24px; padding: 14px 18px; color: white; background: var(--green); }
+.record { position: sticky; bottom: max(10px,env(safe-area-inset-bottom)); z-index: 20; display: flex; justify-content: space-between; width: 100%; min-height: 50px; margin-top: 24px; padding: 14px 18px; color: white; background: var(--green); box-shadow: 0 8px 22px rgba(18,63,49,.24); }
 .record:hover:not(:disabled) { background: var(--green-2); }.record:disabled { cursor: not-allowed; opacity: .38; }
 .box-score-panel { position: relative; max-width: 100%; margin-top: 18px; overflow: hidden; }
 .box-score-body { position: relative; max-width: 100%; padding: 0 0 16px; overflow-x: clip; }
@@ -258,7 +258,7 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
   .position-grid { grid-template-columns: repeat(5,1fr); }
   .position-grid button { min-height: 44px; }
   .field input, .field select { min-height: 46px; }
-  .record { position: sticky; bottom: max(8px,env(safe-area-inset-bottom)); z-index: 5; min-height: 50px; box-shadow: 0 8px 22px rgba(18,63,49,.24); }
+  .record { bottom: max(8px,env(safe-area-inset-bottom)); }
   .log-panel { margin-top: 10px; }
   .box-score-panel { margin-top: 10px; }
   .box-score-grid { grid-template-columns: 1fr; padding-inline: 12px; }
