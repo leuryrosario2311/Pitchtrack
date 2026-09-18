@@ -4,7 +4,8 @@
   --red: #d85b4a; --blue: #2f80c9; --gold: #e4a83b; --shadow: 0 14px 35px rgba(11,31,58,.10);
 }
 * { box-sizing: border-box; }
-body { margin: 0; color: var(--ink); background: var(--paper); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+html { width: 100%; max-width: 100%; overflow-x: hidden; }
+body { width: 100%; max-width: 100%; margin: 0; overflow-x: hidden; color: var(--ink); background: var(--paper); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 .topbar { min-height: 72px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; padding: 12px clamp(16px,3vw,42px); color: white; background: var(--green); overflow-x: clip; }
@@ -24,7 +25,7 @@ button { cursor: pointer; }
 .install-button:hover { color: var(--lime); border-color: var(--lime); }
 .switch-teams-button { color: var(--green); background: var(--lime); border: 1px solid #9bbce8; white-space: nowrap; }
 .switch-teams-button:hover { background: white; }
-main { width: min(1400px, 94vw); margin: 24px auto 50px; }
+main { width: min(1400px, 94vw); max-width: 100%; margin: 24px auto 50px; overflow-x: clip; }
 .score-strip { display: grid; grid-template-columns: 100px 110px 130px 1fr 1fr 90px; gap: 18px; align-items: end; padding: 17px 22px; margin-bottom: 18px; color: white; background: #1b332a; border-radius: 12px; box-shadow: var(--shadow); }
 .score-strip label, .outs { display: grid; gap: 6px; }
 .score-strip label > span, .outs > span { color: #9fb1aa; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
@@ -103,16 +104,16 @@ legend, .field span { display: block; margin-bottom: 9px; color: #43504a; font-s
 .position-grid button.selected { color: white; border-color: var(--green); background: var(--green); }
 .record { display: flex; justify-content: space-between; width: 100%; margin-top: 24px; padding: 14px 18px; color: white; background: var(--green); }
 .record:hover:not(:disabled) { background: var(--green-2); }.record:disabled { cursor: not-allowed; opacity: .38; }
-.box-score-panel { position: relative; margin-top: 18px; overflow: hidden; }
-.box-score-body { position: relative; padding: 0 0 16px; }
-.box-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 18px 16px; }
-.box-score-section { padding: 0 18px 16px; }
+.box-score-panel { position: relative; max-width: 100%; margin-top: 18px; overflow: hidden; }
+.box-score-body { position: relative; max-width: 100%; padding: 0 0 16px; overflow-x: clip; }
+.box-score-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; max-width: 100%; padding: 0 18px 16px; }
+.box-score-section { min-width: 0; max-width: 100%; padding: 0 18px 16px; }
 .box-score-panel h3 { margin: 0 0 9px; color: var(--green); font-family: Georgia, serif; font-size: 20px; font-weight: 500; }
-.stat-table-wrap { min-height: 0; border: 1px solid var(--line); border-radius: 10px; }
+.stat-table-wrap { min-width: 0; min-height: 0; max-width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; -webkit-overflow-scrolling: touch; }
 .stat-table-wrap table { min-width: 620px; }
 .stat-table-wrap th, .stat-table-wrap td { padding: 9px 11px; }
-.scorecard-wrap { display: grid; gap: 18px; }
-.scorecard-table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 10px; -webkit-overflow-scrolling: touch; }
+.scorecard-wrap { display: grid; gap: 18px; min-width: 0; max-width: 100%; }
+.scorecard-table-wrap { min-width: 0; max-width: 100%; overflow: auto; border: 1px solid var(--line); border-radius: 10px; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
 .scorecard-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #f6f5ef; border-bottom: 1px solid var(--line); color: var(--green); font-weight: 900; }
 .scorecard-title small { color: var(--muted); font-size: 11px; }
 .scorecard-grid { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
@@ -128,10 +129,10 @@ legend, .field span { display: block; margin-bottom: 9px; color: #43504a; font-s
 .scorecard-grid .scorecard-pos { text-align: center; color: #5f6964; font-weight: 800; }
 .scorecard-code { display: inline-block; margin: 0 3px 3px 0; padding: 3px 6px; color: var(--green); background: #edf1d4; border-radius: 6px; font-weight: 900; }
 .box-score-empty { inset: 70px 0 20px; background: rgba(255,254,250,.82); }
-.log-panel { margin-top: 18px; overflow: hidden; }
+.log-panel { max-width: 100%; margin-top: 18px; overflow: hidden; }
 .log-heading { align-items: center; padding: 21px 27px 16px; }
 .summary { display: flex; gap: 24px; color: var(--muted); font-size: 11px; }.summary b { display: block; color: var(--ink); font-size: 16px; }
-.table-wrap { position: relative; min-height: 145px; overflow-x: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.table-wrap { position: relative; min-width: 0; max-width: 100%; min-height: 145px; overflow-x: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 th { padding: 9px 14px; color: #818985; background: #f6f5ef; font-size: 9px; letter-spacing: .09em; text-align: left; text-transform: uppercase; }
 td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }

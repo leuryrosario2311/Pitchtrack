@@ -431,8 +431,30 @@ function playerMatchesPitch(player, pitch, kind) {
   const pitchName = pitch[kind];
   const pitchNumber = pitch[`${kind}Number`];
   return (pitchId && player.key === pitchId) ||
+    (pitchId && player.aliases?.includes(pitchId)) ||
     (pitchName && normalizePlayerName(player.name) === normalizePlayerName(pitchName)) ||
+    (pitchName && player.aliases?.includes(normalizePlayerName(pitchName))) ||
     (pitchNumber && player.number && String(player.number) === String(pitchNumber));
+}
+
+function scorecardAliases(player, extra = []) {
+  return [
+    player.id,
+    normalizePlayerName(player.name),
+    player.number ? `number:${String(player.number)}` : '',
+    ...extra
+  ].filter(Boolean);
+}
+
+function findScorecardPlayer(players, pitch) {
+  const direct = players.find(player => playerMatchesPitch(player, pitch, 'batter'));
+  if (direct) return direct;
+  const pitchNumber = pitch.batterNumber ? `number:${String(pitch.batterNumber)}` : '';
+  return players.find(player => (
+    (pitch.batterId && player.aliases?.includes(pitch.batterId)) ||
+    (pitch.batter && player.aliases?.includes(normalizePlayerName(pitch.batter))) ||
+    (pitchNumber && player.aliases?.includes(pitchNumber))
+  ));
 }
 
 function propagateLineupChanges(previousLineups) {
@@ -507,12 +529,12 @@ function relinkPitchesToCurrentLineups() {
       (pitch.batterId && player.id === pitch.batterId) ||
       (pitch.batter && normalizePlayerName(player.name) === normalizePlayerName(pitch.batter)) ||
       (pitch.batterNumber && player.number && String(player.number) === String(pitch.batterNumber))
-    ));
+    )) || (pitch.batterOrder ? state.lineups[battingTeam].batters[Number(pitch.batterOrder) - 1] : null);
     const pitcher = state.lineups[fieldingTeam].pitchers.find(player => (
       (pitch.pitcherId && player.id === pitch.pitcherId) ||
       (pitch.pitcher && normalizePlayerName(player.name) === normalizePlayerName(pitch.pitcher)) ||
       (pitch.pitcherNumber && player.number && String(player.number) === String(pitch.pitcherNumber))
-    ));
+    )) || (pitch.pitcherOrder ? state.lineups[fieldingTeam].pitchers[Number(pitch.pitcherOrder) - 1] : null);
     if (batter) {
       pitch.batterId = batter.id;
       pitch.batter = batter.name || pitch.batter;
@@ -932,9 +954,35 @@ function replayGameState() {
   syncPlayersForHalf();
 }
 
+function csvContextSnapshot() {
+  return state.pitches.map((pitch) => ({
+    number: pitch.number,
+    time: pitch.time || '',
+    recordedAt: pitch.recordedAt || '',
+    inning: pitch.inning,
+    half: pitch.half,
+    outs: pitch.outs,
+    count: pitch.count
+  }));
+}
+
+function restoreCsvContext(snapshot) {
+  snapshot.forEach((saved, index) => {
+    const pitch = state.pitches[index];
+    if (!pitch || pitch.number !== saved.number) return;
+    pitch.time = saved.time;
+    pitch.recordedAt = saved.recordedAt;
+    pitch.inning = saved.inning;
+    pitch.half = saved.half;
+    pitch.outs = saved.outs;
+    pitch.count = saved.count;
+  });
+}
+
 $('saveEditPitch').addEventListener('click', () => {
   if (editingPitchIndex < 0) return;
   const currentSituation = currentGameSituation();
+  const csvContext = csvContextSnapshot();
   const result = $('editResult').value;
   const pitch = state.pitches[editingPitchIndex];
   const battingTeam = pitch.half === 'Top' ? 'away' : 'home';
@@ -943,12 +991,14 @@ $('saveEditPitch').addEventListener('click', () => {
   const selectedBatter = selectedLineupPlayer('editBatterName', state.lineups[battingTeam].batters);
   const customPitcher = $('editPitcherName').value.startsWith('name:') ? $('editPitcherName').value.slice(5) : '';
   const customBatter = $('editBatterName').value.startsWith('name:') ? $('editBatterName').value.slice(5) : '';
-  pitch.pitcher = selectedPitcher?.name || customPitcher || '—';
-  pitch.pitcherId = selectedPitcher?.id || '';
-  pitch.pitcherNumber = selectedPitcher?.number || '';
-  pitch.batter = selectedBatter?.name || customBatter || '—';
-  pitch.batterId = selectedBatter?.id || '';
-  pitch.batterNumber = selectedBatter?.number || '';
+  pitch.pitcher = selectedPitcher?.name || customPitcher || pitch.pitcher || '—';
+  pitch.pitcherId = selectedPitcher?.id || pitch.pitcherId || '';
+  pitch.pitcherNumber = selectedPitcher?.number || pitch.pitcherNumber || '';
+  pitch.batter = selectedBatter?.name || customBatter || pitch.batter || '—';
+  pitch.batterId = selectedBatter?.id || pitch.batterId || '';
+  pitch.batterNumber = selectedBatter?.number || pitch.batterNumber || '';
+  if (selectedPitcher) pitch.pitcherOrder = state.lineups[fieldingTeam].pitchers.findIndex(player => player.id === selectedPitcher.id) + 1;
+  if (selectedBatter) pitch.batterOrder = state.lineups[battingTeam].batters.findIndex(player => player.id === selectedBatter.id) + 1;
   pitch.bats = selectedBatter?.bats || pitch.bats;
   pitch.type = $('editPitchType').value;
   pitch.group = pitchGroupForType(pitch.type);
@@ -959,7 +1009,7 @@ $('saveEditPitch').addEventListener('click', () => {
   pitch.errorLocation = result === 'Error' ? $('editErrorPosition').value : '';
   pitch.note = $('editNote').value.trim();
   pitch.location = editingPitchLocation ? {...editingPitchLocation} : null;
-  replayGameState();
+  restoreCsvContext(csvContext);
   restoreGameSituation(currentSituation);
   render(); save(); $('editPitchDialog').close(); showToast(`Pitch #${pitch.number} updated`);
 });
@@ -969,6 +1019,8 @@ $('recordButton').addEventListener('click', () => {
   const fieldingTeam = battingTeam === 'away' ? 'home' : 'away';
   const batterPlayer = state.lineups[battingTeam].batters.find(player => player.name === $('batter').value);
   const pitcherPlayer = state.lineups[fieldingTeam].pitchers.find(player => player.name === $('pitcher').value);
+  const batterOrder = batterPlayer ? state.lineups[battingTeam].batters.findIndex(player => player.id === batterPlayer.id) + 1 : '';
+  const pitcherOrder = pitcherPlayer ? state.lineups[fieldingTeam].pitchers.findIndex(player => player.id === pitcherPlayer.id) + 1 : '';
   const recordedAt = new Date();
   const recordedResult = state.result || (state.contactType ? 'In play' : 'Not recorded');
   const situationBeforePitch = currentGameSituation();
@@ -981,8 +1033,8 @@ $('recordButton').addEventListener('click', () => {
     time: recordedAt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}),
     recordedAt: recordedAt.toISOString(),
     count: `${state.balls}-${state.strikes}`, outs: state.outs,
-    pitcher: $('pitcher').value.trim() || '—', pitcherId: pitcherPlayer?.id || '', pitcherNumber: pitcherPlayer?.number || '',
-    batter: $('batter').value.trim() || '—', batterId: batterPlayer?.id || '', batterNumber: batterPlayer?.number || '', bats: $('bats').value,
+    pitcher: $('pitcher').value.trim() || '—', pitcherId: pitcherPlayer?.id || '', pitcherNumber: pitcherPlayer?.number || '', pitcherOrder,
+    batter: $('batter').value.trim() || '—', batterId: batterPlayer?.id || '', batterNumber: batterPlayer?.number || '', batterOrder, bats: $('bats').value,
     type: state.pitchType, group: state.pitchGroup, velocity: $('velocity').value || '',
     result: recordedResult, contactType: state.contactType || '', outLocation: state.outLocation || '', errorLocation: state.errorLocation || '',
     note: $('note').value.trim(), location: state.location ? {...state.location} : null
@@ -1059,8 +1111,21 @@ function teamName(team) {
   return $(team === 'home' ? 'homeTeam' : 'awayTeam').value.trim() || capitalize(team);
 }
 
+function pitchHalf(pitch) {
+  return pitch.half === 'Bottom' ? 'Bottom' : 'Top';
+}
+
+function pitchInning(pitch) {
+  const inning = Number(pitch.inning);
+  return Number.isFinite(inning) && inning > 0 ? String(inning) : '1';
+}
+
+function pitchInningLabel(pitch) {
+  return `${pitchHalf(pitch)} ${pitchInning(pitch)}`;
+}
+
 function pitchBattingTeam(pitch) {
-  return pitch.half === 'Top' ? 'away' : 'home';
+  return pitchHalf(pitch) === 'Top' ? 'away' : 'home';
 }
 
 function pitchFieldingTeam(pitch) {
@@ -1209,6 +1274,10 @@ function scorecardPlayers(team, atBatsByInning) {
     if (player.substitutedFor) {
       players.push({
         key: `${team}:name:${normalizePlayerName(player.substitutedFor)}`,
+        aliases: [
+          normalizePlayerName(player.substitutedFor),
+          player.substitutedForNumber ? `number:${String(player.substitutedForNumber)}` : ''
+        ].filter(Boolean),
         order: index + 1,
         name: player.substitutedFor,
         number: player.substitutedForNumber || '',
@@ -1217,6 +1286,7 @@ function scorecardPlayers(team, atBatsByInning) {
       });
       players.push({
         key: player.id || `${team}:lineup:${index}:sub`,
+        aliases: scorecardAliases(player),
         order: `${index + 1}S`,
         name: player.name || `Sub for ${player.substitutedFor}`,
         number: player.number || '',
@@ -1227,6 +1297,7 @@ function scorecardPlayers(team, atBatsByInning) {
     }
     players.push({
       key: player.id || `${team}:lineup:${index}`,
+      aliases: scorecardAliases(player),
       order: index + 1,
       name: player.name || `Player ${index + 1}`,
       number: player.number || '',
@@ -1236,25 +1307,38 @@ function scorecardPlayers(team, atBatsByInning) {
   });
   atBatsByInning.filter(item => item.battingTeam === team).forEach(({pitch}) => {
     const key = pitch.batterId || `${team}:name:${pitch.batter || 'unknown'}`;
-    if (players.some(player => playerMatchesPitch(player, pitch, 'batter'))) return;
+    if (findScorecardPlayer(players, pitch)) return;
+    if (players.length) return;
     players.push({
       key,
+      aliases: [
+        pitch.batterId,
+        normalizePlayerName(pitch.batter),
+        pitch.batterNumber ? `number:${String(pitch.batterNumber)}` : ''
+      ].filter(Boolean),
       order: players.length + 1,
       name: pitch.batter || '—',
       number: pitch.batterNumber || '',
       position: '',
-      note: 'Not in current lineup'
+      note: 'From pitch history'
     });
   });
   return players;
 }
 
+function scorecardFallbackPlayer(players, item, atBatIndex) {
+  return findScorecardPlayer(players, item.pitch) ||
+    (item.pitch.batterOrder ? players[Number(item.pitch.batterOrder) - 1] : null) ||
+    players[atBatIndex % players.length] ||
+    null;
+}
+
 function renderScorecardTeam(team, atBatsByInning, innings) {
   const players = scorecardPlayers(team, atBatsByInning);
   const cells = new Map();
-  atBatsByInning.filter(item => item.battingTeam === team).forEach((item) => {
+  atBatsByInning.filter(item => item.battingTeam === team).forEach((item, atBatIndex) => {
     const key = item.pitch.batterId || `${team}:name:${item.pitch.batter || 'unknown'}`;
-    const player = players.find(entry => playerMatchesPitch(entry, item.pitch, 'batter'));
+    const player = scorecardFallbackPlayer(players, item, atBatIndex);
     const cellKey = `${player?.key || key}:${item.pitch.inning}`;
     if (!cells.has(cellKey)) cells.set(cellKey, []);
     cells.get(cellKey).push(item.code);
@@ -1282,9 +1366,9 @@ function renderScorecardTeam(team, atBatsByInning, innings) {
 function scorecardPdfData(team, atBatsByInning, innings) {
   const players = scorecardPlayers(team, atBatsByInning);
   const cells = new Map();
-  atBatsByInning.filter(item => item.battingTeam === team).forEach((item) => {
+  atBatsByInning.filter(item => item.battingTeam === team).forEach((item, atBatIndex) => {
     const key = item.pitch.batterId || `${team}:name:${item.pitch.batter || 'unknown'}`;
-    const player = players.find(entry => playerMatchesPitch(entry, item.pitch, 'batter'));
+    const player = scorecardFallbackPlayer(players, item, atBatIndex);
     const cellKey = `${player?.key || key}:${item.pitch.inning}`;
     if (!cells.has(cellKey)) cells.set(cellKey, []);
     cells.get(cellKey).push(item.code);
@@ -1461,8 +1545,12 @@ $('resetButton').addEventListener('click', () => {
 
 $('exportButton').addEventListener('click', () => {
   if (!state.pitches.length) return showToast('Record a pitch before exporting');
-  const headers = ['Pitch #','Date','Time','Home Team','Away Team','Inning','Half','Outs','Count','Pitcher #','Pitcher','Batter #','Batter','Bats','Pitch Type','Velocity','Result','Contact Type','Out Position','Error Position','Location','X %','Y %','Note'];
-  const rows = state.pitches.map(p => [p.number,$('gameDate').value,p.time || '',$('homeTeam').value,$('awayTeam').value,p.inning,p.half,p.outs,p.count,p.pitcherNumber || '',p.pitcher,p.batterNumber || '',p.batter,p.bats,p.type,p.velocity,p.result,p.contactType || '',p.outLocation || '',p.errorLocation || '',locationName(p.location),p.location ? p.location.x.toFixed(1) : '',p.location ? p.location.y.toFixed(1) : '',p.note]);
+  const headers = ['Pitch #','Date','Time','Home Team','Away Team','Inning Label','Inning','Half','Batting Team','Fielding Team','Outs','Count','Pitcher #','Pitcher','Batter #','Batter','Bats','Pitch Type','Velocity','Result','Contact Type','Out Position','Error Position','Location','X %','Y %','Note'];
+  const rows = state.pitches.map((p) => {
+    const battingTeam = pitchBattingTeam(p);
+    const fieldingTeam = pitchFieldingTeam(p);
+    return [p.number,$('gameDate').value,p.time || '',$('homeTeam').value,$('awayTeam').value,pitchInningLabel(p),pitchInning(p),pitchHalf(p),teamName(battingTeam),teamName(fieldingTeam),p.outs,p.count,p.pitcherNumber || '',p.pitcher,p.batterNumber || '',p.batter,p.bats,p.type,p.velocity,p.result,p.contactType || '',p.outLocation || '',p.errorLocation || '',locationName(p.location),p.location ? p.location.x.toFixed(1) : '',p.location ? p.location.y.toFixed(1) : '',p.note];
+  });
   const csv = [headers,...rows].map(row => row.map(value => `"${String(value).replaceAll('"','""')}"`).join(',')).join('\n');
   const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
   link.download = `pitch-chart-${$('gameDate').value || 'game'}.csv`; link.click(); URL.revokeObjectURL(link.href);
