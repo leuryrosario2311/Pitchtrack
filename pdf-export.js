@@ -92,6 +92,10 @@
       if (repeatHeader) repeatHeader();
     }
 
+    function startPageIfUsed() {
+      if (y < 700) newPage();
+    }
+
     function sectionTitle(teamName, label) {
       ensureSpace(46);
       commands.push(`0.91 0.94 0.82 rg ${LEFT} ${y - 8} 528 30 re f`);
@@ -174,6 +178,10 @@
       if (repeatHeader) repeatHeader();
     }
 
+    function startPageIfUsed() {
+      if (y < 700) newPage();
+    }
+
     function sectionTitle(label) {
       ensureSpace(42);
       commands.push(`0.84 0.91 1 rg ${LEFT} ${y - 8} 528 28 re f`);
@@ -188,7 +196,9 @@
       y -= 8;
     }
 
-    function table(title, headers, rows, xs) {
+    function table(title, headers, rows, xs, options = {}) {
+      const estimatedHeight = 39 + 20 + Math.max(1, rows.length) * 20 + 10;
+      if (options.keepTogether || estimatedHeight < 560) ensureSpace(estimatedHeight);
       sectionTitle(title);
       row(headers, xs, 7);
       if (!rows.length) { addText(commands, 50, y, 10, 'No stats yet'); y -= 24; return; }
@@ -200,16 +210,24 @@
     }
 
     function scorecard(teamCard) {
-      sectionTitle(`${teamCard.teamName} - AB by inning`);
       const innings = teamCard.innings || [];
-      row(['#', 'Batter', 'Pos', ...innings], [48, 72, 205, ...innings.map((_, i) => 240 + i * 32)], 7);
-      (teamCard.players || []).forEach((player) => {
-        ensureSpace(26, () => {
-          sectionTitle(`${teamCard.teamName} - AB by inning continued`);
-          row(['#', 'Batter', 'Pos', ...innings], [48, 72, 205, ...innings.map((_, i) => 240 + i * 32)], 7);
-        });
+      const groups = [];
+      for (let index = 0; index < innings.length; index += 6) groups.push(innings.slice(index, index + 6));
+      (groups.length ? groups : [[]]).forEach((inningGroup, groupIndex) => {
+        startPageIfUsed();
+        const titleSuffix = groups.length > 1 ? ` (${inningGroup[0] || 1}-${inningGroup[inningGroup.length - 1] || 1})` : '';
+        sectionTitle(`${teamCard.teamName} - AB by inning${titleSuffix}`);
+        const xs = [48, 72, 230, ...inningGroup.map((_, i) => 275 + i * 43)];
+        row(['#', 'Batter', 'Pos', ...inningGroup], xs, 7);
+        (teamCard.players || []).forEach((player) => {
+          ensureSpace(26, () => {
+            sectionTitle(`${teamCard.teamName} - AB by inning continued${titleSuffix}`);
+            row(['#', 'Batter', 'Pos', ...inningGroup], xs, 7);
+          });
         const batter = `${player.number ? `#${player.number} ` : ''}${player.name}${player.note ? ` (${player.note})` : ''}`;
-        row([player.order, batter, player.position || '-', ...innings.map(inning => (player.cells?.[inning] || []).join(' '))], [48, 72, 205, ...innings.map((_, i) => 240 + i * 32)], 7);
+          row([player.order, batter, player.position || '-', ...inningGroup.map(inning => (player.cells?.[inning] || []).join(' '))], xs, 7);
+        });
+        if (groupIndex < groups.length - 1) newPage();
       });
       y -= 8;
     }
@@ -217,12 +235,16 @@
     newPage();
     addText(commands, LEFT, y, 13, `${data.awayName || 'Away'} at ${data.homeName || 'Home'}`, true);
     y -= 24;
-    table('Team batting', ['Team','PA','AB','H','2B','3B','HR','BB','K','HBP','ROE','AVG'], data.teamRows || [], [48,150,185,220,250,280,310,340,370,400,438,475]);
-    table('Pitchers', ['Pitcher','Team','P','Str%','H','BB','K','HBP','Outs'], data.pitcherRows || [], [48,180,260,295,335,365,395,425,465]);
+    table('Team batting', ['Team','PA','AB','H','2B','3B','HR','BB','K','HBP','ROE','AVG'], data.teamRows || [], [48,150,185,220,250,280,310,340,370,400,438,475], {keepTogether: true});
+    table('Pitchers', ['Pitcher','Team','P','Str%','H','BB','K','HBP','Outs'], data.pitcherRows || [], [48,180,260,295,335,365,395,425,465], {keepTogether: (data.pitcherRows || []).length <= 12});
+    startPageIfUsed();
     table('Batters', ['Batter','Team','PA','AB','H','2B','3B','HR','BB','K','AVG'], data.batterRows || [], [48,170,245,275,305,335,365,395,425,455,490]);
+    startPageIfUsed();
     scorecard(data.awayScorecard || {teamName: data.awayName || 'Away', innings: [], players: []});
+    startPageIfUsed();
     scorecard(data.homeScorecard || {teamName: data.homeName || 'Home', innings: [], players: []});
-    table('Pitch types', ['Pitch','Total','Str%','Avg','Whiff','In play'], data.pitchTypeRows || [], [48,180,225,270,315,365]);
+    startPageIfUsed();
+    table('Pitch types', ['Pitch','Total','Str%','Avg','Whiff','In play'], data.pitchTypeRows || [], [48,180,225,270,315,365], {keepTogether: true});
     return finishPdf(pages);
   }
 

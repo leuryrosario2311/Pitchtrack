@@ -101,6 +101,22 @@ function gameTitle(data = currentGameData()) {
   return `${away} at ${home} · ${date}`;
 }
 
+function fileSafeName(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80) || 'team';
+}
+
+function gameFileBase() {
+  const date = $('gameDate').value || todayValue();
+  const away = fileSafeName($('awayTeam').value || 'Away');
+  const home = fileSafeName($('homeTeam').value || 'Home');
+  return `${date}_${away}-at-${home}`;
+}
+
 function applyGameData(data) {
   state.pitches = data.pitches || [];
   state.balls = data.balls || 0;
@@ -747,7 +763,7 @@ $('exportLineupsPdf').addEventListener('click', () => {
   });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([bytes], {type: 'application/pdf'}));
-  link.download = `lineups-${$('gameDate').value || 'game'}.pdf`;
+  link.download = `${gameFileBase()}_lineups.pdf`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   save(); showToast('Lineups PDF exported');
@@ -758,7 +774,7 @@ $('exportStatsPdf').addEventListener('click', () => {
   const bytes = createStatsPdf(statsPdfData());
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([bytes], {type: 'application/pdf'}));
-  link.download = `live-stats-${$('gameDate').value || 'game'}.pdf`;
+  link.download = `${gameFileBase()}_live-stats.pdf`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   showToast('Live stats PDF exported');
