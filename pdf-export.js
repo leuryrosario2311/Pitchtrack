@@ -93,7 +93,7 @@
     }
 
     function startPageIfUsed() {
-      if (y < 700) newPage();
+      if (y < 640) newPage();
     }
 
     function sectionTitle(teamName, label) {
@@ -101,6 +101,16 @@
       commands.push(`0.91 0.94 0.82 rg ${LEFT} ${y - 8} 528 30 re f`);
       addText(commands, LEFT + 11, y + 2, 14, `${teamName} - ${label}`, true);
       y -= 42;
+    }
+
+    function rosterSummary(teamName, batters, pitchers) {
+      ensureSpace(50);
+      addText(commands, LEFT, y, 13, teamName, true);
+      addText(commands, 330, y, 9, `${batters.length} batters`, false, '0.40 0.45 0.42');
+      addText(commands, 430, y, 9, `${pitchers.length} pitchers`, false, '0.40 0.45 0.42');
+      y -= 18;
+      addLine(commands, LEFT, y, 570, y, '0.78 0.82 0.76');
+      y -= 18;
     }
 
     function batterHeader() {
@@ -121,6 +131,9 @@
 
     function drawTeam(team, teamName) {
       const batters = (team.batters || []).filter(player => player.name);
+      const pitchers = (team.pitchers || []).filter(player => player.name);
+      startPageIfUsed();
+      rosterSummary(teamName, batters, pitchers);
       sectionTitle(teamName, 'Batting Order');
       batterHeader();
       if (!batters.length) { addText(commands, 50, y, 10, 'No batting lineup entered'); y -= 24; }
@@ -138,7 +151,6 @@
       y -= 8;
       sectionTitle(teamName, 'Pitching Staff');
       pitcherHeader();
-      const pitchers = (team.pitchers || []).filter(player => player.name);
       if (!pitchers.length) { addText(commands, 50, y, 10, 'No pitching staff entered'); y -= 24; }
       pitchers.forEach((player) => {
         ensureSpace(30, () => { sectionTitle(teamName, 'Pitching Staff - continued'); pitcherHeader(); });
@@ -151,8 +163,10 @@
     }
 
     newPage();
+    addText(commands, LEFT, y, 13, `${data.awayName || 'Away'} at ${data.homeName || 'Home'}`, true);
+    y -= 24;
     drawTeam(data.away || {}, data.awayName || 'Away Team');
-    ensureSpace(120);
+    newPage();
     drawTeam(data.home || {}, data.homeName || 'Home Team');
 
     return finishPdf(pages);

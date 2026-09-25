@@ -1902,7 +1902,7 @@ $('exportButton').addEventListener('click', () => {
   });
   const csv = [headers,...rows].map(row => row.map(value => `"${String(value).replaceAll('"','""')}"`).join(',')).join('\n');
   const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
-  link.download = `pitch-chart-${$('gameDate').value || 'game'}.csv`; link.click(); URL.revokeObjectURL(link.href);
+  link.download = `${gameFileBase()}_pitch-chart.csv`; link.click(); URL.revokeObjectURL(link.href);
   showToast('Pitch chart exported');
 });
 
