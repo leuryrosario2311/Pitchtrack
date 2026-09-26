@@ -247,9 +247,8 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
 .team-section-title small { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .team-player-header, .team-player-row { display: grid; align-items: center; gap: 7px; }
 .team-player-header { padding: 0 5px 6px; color: #8b938f; font-size: 8px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
-.team-player-header.batter, .team-player-row.batter { grid-template-columns: 24px minmax(120px,1fr) 45px 58px 52px 25px; }
-.team-player-header.pitcher, .team-player-row.pitcher { grid-template-columns: 24px minmax(120px,1fr) 45px 62px 25px; }
-.team-player-list { display: grid; gap: 6px; max-height: 360px; overflow-y: auto; padding-right: 4px; }
+.team-player-header.batter, .team-player-row.batter, .team-player-header.pitcher, .team-player-row.pitcher { grid-template-columns: 28px minmax(150px,1.4fr) 48px 92px 64px 48px 48px 62px 58px minmax(130px,1fr) 25px; min-width: 820px; }
+.team-player-list { display: grid; gap: 6px; max-height: 360px; overflow: auto; padding-right: 4px; }
 .team-player-row { padding: 5px; background: #f5f3eb; border-radius: 7px; }
 .team-player-row input, .team-player-row select { min-width: 0; width: 100%; padding: 7px 6px; color: var(--ink); background: white; border: 1px solid var(--line); border-radius: 6px; outline: none; font-size: 12px; }
 .team-player-row input:focus, .team-player-row select:focus { border-color: var(--green-2); box-shadow: 0 0 0 3px rgba(28,90,69,.09); }
@@ -319,8 +318,7 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
   .teams-layout, .team-save-actions, .team-editor-grid, .team-batch-card, .team-batch-actions { grid-template-columns: 1fr; }
   .teams-body { padding-inline: 15px; }
   .team-batch-card small { grid-column: auto; }
-  .team-player-header.batter, .team-player-row.batter { grid-template-columns: 24px minmax(130px,1fr) 45px 58px 52px 25px; min-width: 420px; }
-  .team-player-header.pitcher, .team-player-row.pitcher { grid-template-columns: 24px minmax(130px,1fr) 45px 62px 25px; min-width: 330px; }
+  .team-player-header.batter, .team-player-row.batter, .team-player-header.pitcher, .team-player-row.pitcher { grid-template-columns: 28px minmax(150px,1.4fr) 48px 92px 64px 48px 48px 62px 58px minmax(130px,1fr) 25px; min-width: 820px; }
   .team-editor-grid > section { overflow-x: auto; }
 }
 @media (max-width: 760px) {
