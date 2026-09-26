@@ -297,13 +297,26 @@ function savedRosterPlayers(kind) {
 function renderSavedPlayerLists() {
   const batterList = $('savedBatterPlayers');
   const pitcherList = $('savedPitcherPlayers');
-  if (!batterList || !pitcherList) return;
-  batterList.innerHTML = savedRosterPlayers('batter').map(player =>
-    `<option value="${escapeHtml(player.name)}" label="${escapeHtml(`${player.number ? `#${player.number} ` : ''}${player.teamName || 'Saved team'}${player.position ? ` · ${player.position}` : ''}`)}"></option>`
-  ).join('');
-  pitcherList.innerHTML = savedRosterPlayers('pitcher').map(player =>
-    `<option value="${escapeHtml(player.name)}" label="${escapeHtml(`${player.number ? `#${player.number} ` : ''}${player.teamName || 'Saved team'}${player.throws ? ` · ${player.throws}HP` : ''}`)}"></option>`
-  ).join('');
+  const teamList = $('savedTeamNames');
+  if (batterList) {
+    batterList.innerHTML = savedRosterPlayers('batter').map(player =>
+      `<option value="${escapeHtml(player.name)}" label="${escapeHtml(`${player.number ? `#${player.number} ` : ''}${player.teamName || 'Saved team'}${player.position ? ` · ${player.position}` : ''}`)}"></option>`
+    ).join('');
+  }
+  if (pitcherList) {
+    pitcherList.innerHTML = savedRosterPlayers('pitcher').map(player =>
+      `<option value="${escapeHtml(player.name)}" label="${escapeHtml(`${player.number ? `#${player.number} ` : ''}${player.teamName || 'Saved team'}${player.throws ? ` · ${player.throws}HP` : ''}`)}"></option>`
+    ).join('');
+  }
+  if (teamList) {
+    teamList.innerHTML = savedTeams
+      .filter(team => team.name?.trim())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((team) => {
+        const counts = teamPlayerCounts(team.lineup);
+        return `<option value="${escapeHtml(team.name)}" label="${counts.batters} batters · ${counts.pitchers} pitchers"></option>`;
+      }).join('');
+  }
 }
 
 function findSavedRosterPlayer(kind, name) {
@@ -492,8 +505,15 @@ function loadTeamIntoSide(teamId, side) {
   updateLineupLabels();
   render();
   save();
-  $('teamsDialog').close();
+  if ($('teamsDialog').open) $('teamsDialog').close();
   showToast(`${team.name} loaded to ${capitalize(side)}`);
+}
+
+function loadSavedTeamFromName(side) {
+  const input = $(side === 'home' ? 'homeTeam' : 'awayTeam');
+  const team = savedTeams.find(item => normalizePlayerName(item.name) === normalizePlayerName(input.value));
+  if (!team) return;
+  loadTeamIntoSide(team.id, side);
 }
 
 $('teamsButton').addEventListener('click', () => {
@@ -2054,5 +2074,8 @@ fields.forEach(id => $(id).addEventListener('change', () => { updateResetButtonS
   updateLineupLabels();
   updateLineupCount();
   updateResetButtonState();
+}));
+['homeTeam', 'awayTeam'].forEach((id) => $(id).addEventListener('change', () => {
+  loadSavedTeamFromName(id === 'homeTeam' ? 'home' : 'away');
 }));
 load(); renderLineupOptions(); render();
