@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=50">
+  <link rel="stylesheet" href="styles.css?v=52">
 </head>
 <body>
   <header class="topbar">
@@ -285,6 +285,14 @@
       </section>
       <section class="team-editor-card" id="teamEditor" hidden>
         <div class="lineup-title"><h3 id="teamEditorTitle">Edit team roster</h3><div><button class="add-player" id="addTeamBatter" type="button">＋ Add batter</button><button class="add-player" id="addTeamPitcher" type="button">＋ Add pitcher</button></div></div>
+        <div class="team-batch-card">
+          <label class="rename-field"><span>Batch add players</span><textarea id="teamBatchInput" rows="4" placeholder="Paste one player per line:&#10;51 Richard de los Santos&#10;3, Max De La Cruz&#10;69     Angeibel Gomez"></textarea></label>
+          <div class="team-batch-actions">
+            <button class="game-action" id="batchAddBatters" type="button">Add as batters</button>
+            <button class="game-action" id="batchAddPitchers" type="button">Add as pitchers</button>
+          </div>
+          <small>Formats: # Name, #, Name, or # [tab] Name.</small>
+        </div>
         <div class="team-editor-grid">
           <section>
             <h4>Batters</h4>
@@ -395,8 +403,10 @@
     <div class="dialog-actions rename-actions"><button class="button dialog-cancel" id="cancelEditPitch">Cancel</button><button class="button button-primary" id="saveEditPitch">Save changes</button></div>
   </dialog>
 
+  <datalist id="savedBatterPlayers"></datalist>
+  <datalist id="savedPitcherPlayers"></datalist>
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=50"></script>
-  <script src="app.js?v=50"></script>
+  <script src="pdf-export.js?v=52"></script>
+  <script src="app.js?v=52"></script>
 </body>
 </html>

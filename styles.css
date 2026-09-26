@@ -217,6 +217,12 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
 .team-save-card small { color: var(--muted); font-size: 10px; line-height: 1.4; }
 .team-editor-card { display: grid; gap: 14px; padding: 14px; background: #fffefa; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 18px rgba(11,31,58,.08); }
 .team-editor-card[hidden] { display: none; }
+.team-batch-card { display: grid; gap: 10px; padding: 12px; background: #f5f7fb; border: 1px solid var(--line); border-radius: 10px; }
+.team-batch-card textarea { width: 100%; min-height: 92px; resize: vertical; padding: 10px 12px; color: var(--ink); background: white; border: 1px solid var(--line); border-radius: 8px; outline: none; line-height: 1.35; }
+.team-batch-card textarea:focus { border-color: var(--green-2); box-shadow: 0 0 0 3px rgba(23,64,109,.10); }
+.team-batch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.team-batch-actions .game-action { min-height: 38px; }
+.team-batch-card small { color: var(--muted); font-size: 10px; line-height: 1.45; }
 .team-editor-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 18px; }
 .team-editor-grid h4 { margin: 0 0 8px; color: var(--green); font-family: Georgia, serif; font-size: 18px; font-weight: 600; }
 .team-player-header, .team-player-row { display: grid; align-items: center; gap: 7px; }

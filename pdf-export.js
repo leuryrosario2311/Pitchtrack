@@ -225,23 +225,17 @@
 
     function scorecard(teamCard) {
       const innings = teamCard.innings || [];
-      const groups = [];
-      for (let index = 0; index < innings.length; index += 6) groups.push(innings.slice(index, index + 6));
-      (groups.length ? groups : [[]]).forEach((inningGroup, groupIndex) => {
-        startPageIfUsed();
-        const titleSuffix = groups.length > 1 ? ` (${inningGroup[0] || 1}-${inningGroup[inningGroup.length - 1] || 1})` : '';
-        sectionTitle(`${teamCard.teamName} - AB by inning${titleSuffix}`);
-        const xs = [48, 72, 230, ...inningGroup.map((_, i) => 275 + i * 43)];
-        row(['#', 'Batter', 'Pos', ...inningGroup], xs, 7);
-        (teamCard.players || []).forEach((player) => {
-          ensureSpace(26, () => {
-            sectionTitle(`${teamCard.teamName} - AB by inning continued${titleSuffix}`);
-            row(['#', 'Batter', 'Pos', ...inningGroup], xs, 7);
-          });
-        const batter = `${player.number ? `#${player.number} ` : ''}${player.name}${player.note ? ` (${player.note})` : ''}`;
-          row([player.order, batter, player.position || '-', ...inningGroup.map(inning => (player.cells?.[inning] || []).join(' '))], xs, 7);
+      startPageIfUsed();
+      sectionTitle(`${teamCard.teamName} - AB by inning`);
+      const xs = [48, 68, 190, ...innings.map((_, i) => 225 + i * 36)];
+      row(['#', 'Batter', 'Pos', ...innings], xs, 7);
+      (teamCard.players || []).forEach((player) => {
+        ensureSpace(26, () => {
+          sectionTitle(`${teamCard.teamName} - AB by inning continued`);
+          row(['#', 'Batter', 'Pos', ...innings], xs, 7);
         });
-        if (groupIndex < groups.length - 1) newPage();
+        const batter = `${player.number ? `#${player.number} ` : ''}${player.name}${player.note ? ` (${player.note})` : ''}`;
+        row([player.order, clean(batter, 22), player.position || '-', ...innings.map(inning => (player.cells?.[inning] || []).join(' '))], xs, 7);
       });
       y -= 8;
     }

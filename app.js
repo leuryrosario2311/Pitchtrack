@@ -269,11 +269,62 @@ function loadTeams() {
   } catch (_) {
     savedTeams = [];
   }
+  renderSavedPlayerLists();
 }
 
 function persistTeams() {
   localStorage.setItem(TEAMS_KEY, JSON.stringify({teams: savedTeams}));
   renderTeamsList();
+  renderSavedPlayerLists();
+}
+
+function savedRosterPlayers(kind) {
+  const collection = kind === 'batter' ? 'batters' : 'pitchers';
+  const seen = new Set();
+  const players = [];
+  savedTeams.forEach((team) => {
+    (team.lineup?.[collection] || []).forEach((player) => {
+      if (!player.name?.trim()) return;
+      const key = `${normalizePlayerName(player.name)}|${player.number || ''}|${kind}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      players.push({...player, teamName: team.name});
+    });
+  });
+  return players.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderSavedPlayerLists() {
+  const batterList = $('savedBatterPlayers');
+  const pitcherList = $('savedPitcherPlayers');
+  if (!batterList || !pitcherList) return;
+  batterList.innerHTML = savedRosterPlayers('batter').map(player =>
+    `<option value="${escapeHtml(player.name)}" label="${escapeHtml(`${player.number ? `#${player.number} ` : ''}${player.teamName || 'Saved team'}${player.position ? ` · ${player.position}` : ''}`)}"></option>`
+  ).join('');
+  pitcherList.innerHTML = savedRosterPlayers('pitcher').map(player =>
+    `<option value="${escapeHtml(player.name)}" label="${escapeHtml(`${player.number ? `#${player.number} ` : ''}${player.teamName || 'Saved team'}${player.throws ? ` · ${player.throws}HP` : ''}`)}"></option>`
+  ).join('');
+}
+
+function findSavedRosterPlayer(kind, name) {
+  const normalized = normalizePlayerName(name);
+  if (!normalized) return null;
+  return savedRosterPlayers(kind).find(player => normalizePlayerName(player.name) === normalized) || null;
+}
+
+function fillLineupPlayerFromSaved(input) {
+  const kind = input.dataset.kind;
+  const player = findSavedRosterPlayer(kind, input.value);
+  if (!player) return;
+  const row = input.closest('.lineup-row');
+  row.querySelector('.lineup-number').value = player.number || '';
+  if (kind === 'batter') {
+    row.querySelector('.lineup-position').value = player.position || '';
+    row.querySelector('.lineup-bats').value = player.bats || 'R';
+  } else {
+    row.querySelector('.lineup-throws').value = player.throws || 'R';
+  }
+  updateLineupCount();
 }
 
 function renderTeamsList() {
@@ -330,6 +381,39 @@ function renderTeamEditor() {
   $('teamBatters').innerHTML = (editingTeamRoster?.batters || []).map(teamBatterRow).join('');
   $('teamPitchers').innerHTML = (editingTeamRoster?.pitchers || []).map(teamPitcherRow).join('');
   $('teamEditor').hidden = false;
+}
+
+function parseBatchPlayers(text) {
+  return String(text || '').split(/\n+/).map(line => line.trim()).filter(Boolean).map((line) => {
+    const cleaned = line.replace(/^#/, '').trim();
+    let number = '';
+    let name = cleaned;
+    const commaMatch = cleaned.match(/^(\d{1,3})\s*,\s*(.+)$/);
+    const spacedMatch = cleaned.match(/^(\d{1,3})\s+(.+)$/);
+    if (commaMatch) {
+      number = commaMatch[1];
+      name = commaMatch[2];
+    } else if (spacedMatch) {
+      number = spacedMatch[1];
+      name = spacedMatch[2];
+    }
+    return {name: name.trim(), number: number.trim()};
+  }).filter(player => player.name);
+}
+
+function batchAddTeamPlayers(kind) {
+  if (!editingTeamRoster) beginTeamEdit();
+  readTeamEditor();
+  const players = parseBatchPlayers($('teamBatchInput').value);
+  if (!players.length) return showToast('Paste player names first');
+  if (kind === 'batter') {
+    editingTeamRoster.batters.push(...players.map(player => ({...player, position: '', bats: 'R'})));
+  } else {
+    editingTeamRoster.pitchers.push(...players.map(player => ({...player, throws: 'R'})));
+  }
+  $('teamBatchInput').value = '';
+  renderTeamEditor();
+  showToast(`${players.length} player${players.length === 1 ? '' : 's'} added`);
 }
 
 function readTeamEditor() {
@@ -434,6 +518,8 @@ $('addTeamPitcher').addEventListener('click', () => {
   renderTeamEditor();
   $('teamPitchers').querySelector('.team-player-row:last-child .team-player-name')?.focus();
 });
+$('batchAddBatters').addEventListener('click', () => batchAddTeamPlayers('batter'));
+$('batchAddPitchers').addEventListener('click', () => batchAddTeamPlayers('pitcher'));
 $('cancelTeamEdit').addEventListener('click', cancelTeamEdit);
 $('saveTeamRoster').addEventListener('click', saveTeamEditorRoster);
 $('teamEditor').addEventListener('click', (event) => {
@@ -477,7 +563,7 @@ function buildLineupEditor() {
   $('battingLineup').innerHTML = lineup.batters.map((player, index) => `
     <div class="lineup-row batting" data-player-id="${player.id}" data-substituted-for="${escapeHtml(player.substitutedFor || '')}" data-substituted-for-number="${escapeHtml(player.substitutedForNumber || '')}" data-substituted-for-position="${escapeHtml(player.substitutedForPosition || '')}" data-substituted-for-bats="${escapeHtml(player.substitutedForBats || '')}" data-substitution-at="${escapeHtml(player.substitutionAt || '')}">
       <span class="order-number">${index + 1}</span>
-      <div class="lineup-player-cell"><input class="lineup-name" data-kind="batter" data-index="${index}" value="${escapeHtml(player.name)}" placeholder="${escapeHtml(player.substitutedFor ? `Sub for ${player.substitutedFor}` : `Player ${index + 1}`)}" aria-label="Batter ${index + 1} name">${player.substitutedFor ? `<small>Sub for ${player.substitutedForNumber ? `#${escapeHtml(player.substitutedForNumber)} ` : ''}${escapeHtml(player.substitutedFor)}${player.substitutionAt ? ` · ${escapeHtml(player.substitutionAt)}` : ''}</small>` : ''}</div>
+      <div class="lineup-player-cell"><input class="lineup-name" list="savedBatterPlayers" data-kind="batter" data-index="${index}" value="${escapeHtml(player.name)}" placeholder="${escapeHtml(player.substitutedFor ? `Sub for ${player.substitutedFor}` : `Player ${index + 1}`)}" aria-label="Batter ${index + 1} name">${player.substitutedFor ? `<small>Sub for ${player.substitutedForNumber ? `#${escapeHtml(player.substitutedForNumber)} ` : ''}${escapeHtml(player.substitutedFor)}${player.substitutionAt ? ` · ${escapeHtml(player.substitutionAt)}` : ''}</small>` : ''}</div>
       <input class="lineup-number" data-index="${index}" value="${escapeHtml(player.number || '')}" placeholder="#" maxlength="3" inputmode="numeric" aria-label="Batter ${index + 1} jersey number">
       <select class="lineup-position" data-index="${index}" aria-label="Batter ${index + 1} position">${positionOptions(player.position)}</select>
       <select class="lineup-bats" data-index="${index}" aria-label="Batter ${index + 1} bats"><option ${player.bats === 'R' ? 'selected' : ''}>R</option><option ${player.bats === 'L' ? 'selected' : ''}>L</option><option ${player.bats === 'S' ? 'selected' : ''}>S</option></select>
@@ -488,7 +574,7 @@ function buildLineupEditor() {
   $('pitchingStaff').innerHTML = lineup.pitchers.map((player, index) => `
     <div class="lineup-row pitching" data-player-id="${player.id}">
       <span class="order-number">${index + 1}</span>
-      <input class="lineup-name" data-kind="pitcher" data-index="${index}" value="${escapeHtml(player.name)}" placeholder="Pitcher ${index + 1}" aria-label="Pitcher ${index + 1} name">
+      <input class="lineup-name" list="savedPitcherPlayers" data-kind="pitcher" data-index="${index}" value="${escapeHtml(player.name)}" placeholder="Pitcher ${index + 1}" aria-label="Pitcher ${index + 1} name">
       <input class="lineup-number" data-index="${index}" value="${escapeHtml(player.number || '')}" placeholder="#" maxlength="3" inputmode="numeric" aria-label="Pitcher ${index + 1} jersey number">
       <select class="lineup-throws" data-index="${index}" aria-label="Pitcher ${index + 1} throws"><option ${player.throws === 'R' ? 'selected' : ''}>R</option><option ${player.throws === 'L' ? 'selected' : ''}>L</option></select>
       <button class="remove-player" data-kind="pitcher" data-index="${index}" type="button" title="Remove ${escapeHtml(player.name || `Pitcher ${index + 1}`)}" aria-label="Remove pitcher ${index + 1}">×</button>
@@ -575,6 +661,10 @@ function cancelLineupChanges() {
 $('closeLineup').addEventListener('click', cancelLineupChanges);
 $('cancelLineup').addEventListener('click', cancelLineupChanges);
 $('lineupDialog').addEventListener('input', updateLineupCount);
+$('lineupDialog').addEventListener('change', (event) => {
+  const input = event.target.closest('.lineup-name');
+  if (input) fillLineupPlayerFromSaved(input);
+});
 $('lineupDialog').addEventListener('click', (event) => { if (event.target === $('lineupDialog')) cancelLineupChanges(); });
 $('jumpBatters').addEventListener('click', () => $('battingLineupTitle').scrollIntoView({behavior: 'smooth', block: 'start'}));
 $('jumpPitchers').addEventListener('click', () => $('pitchingStaffTitle').scrollIntoView({behavior: 'smooth', block: 'start'}));
