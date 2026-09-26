@@ -294,20 +294,34 @@ function savedRosterPlayers(kind) {
   return players.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function renderSavedPlayerLists() {
+function rosterPlayersForLineupSide(kind, side = editingTeam) {
+  const collection = kind === 'batter' ? 'batters' : 'pitchers';
+  const team = savedTeamForSide(side);
+  if (!team) return savedRosterPlayers(kind);
+  return (team.lineup?.[collection] || [])
+    .filter(player => player.name?.trim())
+    .map(player => ({...player, teamName: team.name}))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderLineupRosterChoices(side = editingTeam) {
   const batterList = $('savedBatterPlayers');
   const pitcherList = $('savedPitcherPlayers');
-  const teamList = $('savedTeamNames');
   if (batterList) {
-    batterList.innerHTML = savedRosterPlayers('batter').map(player =>
+    batterList.innerHTML = rosterPlayersForLineupSide('batter', side).map(player =>
       `<option value="${escapeHtml(player.name)}" label="${escapeHtml(`${player.number ? `#${player.number} ` : ''}${player.teamName || 'Saved team'}${player.position ? ` · ${player.position}` : ''}`)}"></option>`
     ).join('');
   }
   if (pitcherList) {
-    pitcherList.innerHTML = savedRosterPlayers('pitcher').map(player =>
+    pitcherList.innerHTML = rosterPlayersForLineupSide('pitcher', side).map(player =>
       `<option value="${escapeHtml(player.name)}" label="${escapeHtml(`${player.number ? `#${player.number} ` : ''}${player.teamName || 'Saved team'}${player.throws ? ` · ${player.throws}HP` : ''}`)}"></option>`
     ).join('');
   }
+}
+
+function renderSavedPlayerLists() {
+  const teamList = $('savedTeamNames');
+  renderLineupRosterChoices(editingTeam);
   if (teamList) {
     teamList.innerHTML = savedTeams
       .filter(team => team.name?.trim())
@@ -625,6 +639,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 
 function buildLineupEditor() {
   updateLineupLabels();
+  renderLineupRosterChoices(editingTeam);
   const lineup = state.lineups[editingTeam];
   $('battingLineup').innerHTML = lineup.batters.map((player, index) => `
     <div class="lineup-row batting" data-player-id="${player.id}" data-substituted-for="${escapeHtml(player.substitutedFor || '')}" data-substituted-for-number="${escapeHtml(player.substitutedForNumber || '')}" data-substituted-for-position="${escapeHtml(player.substitutedForPosition || '')}" data-substituted-for-bats="${escapeHtml(player.substitutedForBats || '')}" data-substitution-at="${escapeHtml(player.substitutionAt || '')}">

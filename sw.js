@@ -1,10 +1,10 @@
-const CACHE_NAME = 'pitchtrack-v54';
+const CACHE_NAME = 'pitchtrack-v55';
 const APP_SHELL = [
   './',
   './index.html',
-  './styles.css?v=54',
-  './app.js?v=54',
-  './pdf-export.js?v=54',
+  './styles.css?v=55',
+  './app.js?v=55',
+  './pdf-export.js?v=55',
   './manifest.webmanifest',
   './assets/app-icon.svg',
   './assets/apple-touch-icon.png',
