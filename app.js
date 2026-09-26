@@ -319,16 +319,60 @@ function renderSavedPlayerLists() {
   }
 }
 
-function findSavedRosterPlayer(kind, name) {
+function savedTeamForSide(side) {
+  const teamName = teamDisplayName(side);
+  return savedTeams.find(team => normalizePlayerName(team.name) === normalizePlayerName(teamName)) || null;
+}
+
+function findSavedRosterPlayer(kind, name, side = editingTeam) {
   const normalized = normalizePlayerName(name);
   if (!normalized) return null;
+  const sideTeam = savedTeamForSide(side);
+  const collection = kind === 'batter' ? 'batters' : 'pitchers';
+  const teamMatch = sideTeam?.lineup?.[collection]?.find(player => normalizePlayerName(player.name) === normalized);
+  if (teamMatch) return {...teamMatch, teamName: sideTeam.name};
+  if (sideTeam) return null;
   return savedRosterPlayers(kind).find(player => normalizePlayerName(player.name) === normalized) || null;
+}
+
+function quickAddLineupPlayerToRoster(input) {
+  const name = input.value.trim();
+  if (!name) return;
+  const kind = input.dataset.kind;
+  const side = editingTeam;
+  const teamName = teamDisplayName(side);
+  if (!confirm(`${name} is not in the ${teamName} saved roster. Add quickly now?`)) return;
+  const row = input.closest('.lineup-row');
+  let team = savedTeamForSide(side);
+  if (!team) {
+    team = {id: createTeamId(), name: teamName, updatedAt: new Date().toISOString(), lineup: blankTeamRoster()};
+    savedTeams.unshift(team);
+  }
+  const player = kind === 'batter'
+    ? {
+        id: createPlayerId('batter'),
+        name,
+        number: row.querySelector('.lineup-number').value.trim(),
+        position: row.querySelector('.lineup-position').value.trim().toUpperCase(),
+        bats: row.querySelector('.lineup-bats').value || 'R'
+      }
+    : {
+        id: createPlayerId('pitcher'),
+        name,
+        number: row.querySelector('.lineup-number').value.trim(),
+        throws: row.querySelector('.lineup-throws').value || 'R'
+      };
+  const collection = kind === 'batter' ? team.lineup.batters : team.lineup.pitchers;
+  if (!collection.some(existing => normalizePlayerName(existing.name) === normalizePlayerName(name))) collection.push(player);
+  team.updatedAt = new Date().toISOString();
+  persistTeams();
+  showToast(`${name} added to ${team.name}`);
 }
 
 function fillLineupPlayerFromSaved(input) {
   const kind = input.dataset.kind;
-  const player = findSavedRosterPlayer(kind, input.value);
-  if (!player) return;
+  const player = findSavedRosterPlayer(kind, input.value, editingTeam);
+  if (!player) return quickAddLineupPlayerToRoster(input);
   const row = input.closest('.lineup-row');
   row.querySelector('.lineup-number').value = player.number || '';
   if (kind === 'batter') {
