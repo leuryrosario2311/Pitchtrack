@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=52">
+  <link rel="stylesheet" href="styles.css?v=53">
 </head>
 <body>
   <header class="topbar">
@@ -270,47 +270,69 @@
 
   <dialog class="games-dialog teams-dialog" id="teamsDialog">
     <div class="dialog-heading compact">
-      <div><p class="eyebrow">Team library</p><h2>Team manager</h2><p>Save a roster once, then load it into Home or Away for any game.</p></div>
+      <div><p class="eyebrow">Team rosters</p><h2>Manage teams</h2><p>Add players to saved teams, then pick those players fast when building a lineup.</p></div>
       <button class="dialog-close" id="closeTeams" aria-label="Close team manager">×</button>
     </div>
     <div class="teams-body">
-      <section class="team-save-card">
-        <label class="rename-field"><span>Team name</span><input id="teamNameInput" maxlength="50" placeholder="Example: ASL 14U"></label>
-        <div class="team-save-actions">
-          <button class="button button-primary" id="createTeamButton" type="button">＋ Create / edit team</button>
-          <button class="button pdf-button" id="saveHomeTeam" type="button">Save Home lineup</button>
-          <button class="button pdf-button" id="saveAwayTeam" type="button">Save Away lineup</button>
-        </div>
-        <small>Create a team here and add players once. You can also save the current Home/Away lineup as a team.</small>
-      </section>
-      <section class="team-editor-card" id="teamEditor" hidden>
-        <div class="lineup-title"><h3 id="teamEditorTitle">Edit team roster</h3><div><button class="add-player" id="addTeamBatter" type="button">＋ Add batter</button><button class="add-player" id="addTeamPitcher" type="button">＋ Add pitcher</button></div></div>
-        <div class="team-batch-card">
-          <label class="rename-field"><span>Batch add players</span><textarea id="teamBatchInput" rows="4" placeholder="Paste one player per line:&#10;51 Richard de los Santos&#10;3, Max De La Cruz&#10;69     Angeibel Gomez"></textarea></label>
-          <div class="team-batch-actions">
-            <button class="game-action" id="batchAddBatters" type="button">Add as batters</button>
-            <button class="game-action" id="batchAddPitchers" type="button">Add as pitchers</button>
+      <div class="teams-layout">
+        <aside class="teams-sidebar">
+          <section class="team-save-card">
+            <p class="eyebrow">Teams</p>
+            <label class="rename-field"><span>Team name</span><input id="teamNameInput" maxlength="50" placeholder="Example: ASL 14U"></label>
+            <div class="team-save-actions">
+              <button class="button button-primary" id="createTeamButton" type="button">＋ New / edit roster</button>
+              <button class="button pdf-button" id="saveHomeTeam" type="button">Save Home lineup</button>
+              <button class="button pdf-button" id="saveAwayTeam" type="button">Save Away lineup</button>
+            </div>
+            <small>Create a team here, then paste or add players to that team roster.</small>
+          </section>
+          <section>
+            <div class="team-section-title"><h3>Saved teams</h3><small>Tap Edit players</small></div>
+            <div class="teams-list" id="teamsList"></div>
+          </section>
+        </aside>
+        <section class="teams-workspace">
+          <div class="teams-start-card" id="teamsStartCard">
+            <p class="eyebrow">Roster tools</p>
+            <h3>Select or create a team</h3>
+            <p>Use the left side to create a team or edit a saved team. Then you can batch add players, add one player at a time, and save the roster for future games.</p>
           </div>
-          <small>Formats: # Name, #, Name, or # [tab] Name.</small>
-        </div>
-        <div class="team-editor-grid">
-          <section>
-            <h4>Batters</h4>
-            <div class="team-player-header batter"><span>#</span><span>Name</span><span>No.</span><span>Pos</span><span>Bats</span><span></span></div>
-            <div class="team-player-list" id="teamBatters"></div>
+          <section class="team-editor-card" id="teamEditor" hidden>
+            <div class="team-editor-heading">
+              <div><p class="eyebrow">Manage roster</p><h3 id="teamEditorTitle">Edit team roster</h3></div>
+              <div><button class="add-player" id="addTeamBatter" type="button">＋ Add batter</button><button class="add-player" id="addTeamPitcher" type="button">＋ Add pitcher</button></div>
+            </div>
+            <div class="team-batch-card">
+              <div>
+                <p class="eyebrow">Batch add players</p>
+                <h4>Paste many players at once</h4>
+              </div>
+              <label class="rename-field"><span>One player per line</span><textarea id="teamBatchInput" rows="5" placeholder="51 Richard de los Santos&#10;3, Max De La Cruz&#10;69     Angeibel Gomez"></textarea></label>
+              <div class="team-batch-actions">
+                <button class="button button-primary" id="batchAddBatters" type="button">＋ Add as batters</button>
+                <button class="button pdf-button" id="batchAddPitchers" type="button">＋ Add as pitchers</button>
+              </div>
+              <small>Works with: # Name, #, Name, or # [tab] Name.</small>
+            </div>
+            <div class="team-editor-grid">
+              <section>
+                <div class="team-section-title"><h4>Batters</h4><small>For lineup names</small></div>
+                <div class="team-player-header batter"><span>#</span><span>Name</span><span>No.</span><span>Pos</span><span>Bats</span><span></span></div>
+                <div class="team-player-list" id="teamBatters"></div>
+              </section>
+              <section>
+                <div class="team-section-title"><h4>Pitchers</h4><small>For pitcher dropdown</small></div>
+                <div class="team-player-header pitcher"><span>#</span><span>Name</span><span>No.</span><span>Throws</span><span></span></div>
+                <div class="team-player-list" id="teamPitchers"></div>
+              </section>
+            </div>
+            <div class="team-editor-actions">
+              <button class="button dialog-cancel" id="cancelTeamEdit" type="button">Cancel</button>
+              <button class="button button-primary" id="saveTeamRoster" type="button">Save team roster</button>
+            </div>
           </section>
-          <section>
-            <h4>Pitchers</h4>
-            <div class="team-player-header pitcher"><span>#</span><span>Name</span><span>No.</span><span>Throws</span><span></span></div>
-            <div class="team-player-list" id="teamPitchers"></div>
-          </section>
-        </div>
-        <div class="team-editor-actions">
-          <button class="button dialog-cancel" id="cancelTeamEdit" type="button">Cancel</button>
-          <button class="button button-primary" id="saveTeamRoster" type="button">Save team roster</button>
-        </div>
-      </section>
-      <div class="teams-list" id="teamsList"></div>
+        </section>
+      </div>
     </div>
     <div class="dialog-actions rename-actions"><button class="button dialog-cancel" id="cancelTeams">Close</button></div>
   </dialog>
@@ -406,7 +428,7 @@
   <datalist id="savedBatterPlayers"></datalist>
   <datalist id="savedPitcherPlayers"></datalist>
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=52"></script>
-  <script src="app.js?v=52"></script>
+  <script src="pdf-export.js?v=53"></script>
+  <script src="app.js?v=53"></script>
 </body>
 </html>

@@ -380,6 +380,7 @@ function renderTeamEditor() {
   $('teamEditorTitle').textContent = `Edit ${name}`;
   $('teamBatters').innerHTML = (editingTeamRoster?.batters || []).map(teamBatterRow).join('');
   $('teamPitchers').innerHTML = (editingTeamRoster?.pitchers || []).map(teamPitcherRow).join('');
+  if ($('teamsStartCard')) $('teamsStartCard').hidden = true;
   $('teamEditor').hidden = false;
 }
 
@@ -447,6 +448,7 @@ function cancelTeamEdit() {
   editingSavedTeamId = null;
   editingTeamRoster = null;
   $('teamEditor').hidden = true;
+  if ($('teamsStartCard')) $('teamsStartCard').hidden = false;
 }
 
 function saveTeamEditorRoster() {
