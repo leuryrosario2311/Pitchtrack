@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=55">
+  <link rel="stylesheet" href="styles.css?v=56">
 </head>
 <body>
   <header class="topbar">
@@ -20,8 +20,8 @@
       <span>Pitch<span>Track</span></span>
     </a>
     <div class="game-meta">
-      <label>Home <input id="homeTeam" list="savedTeamNames" placeholder="Home team"></label>
-      <label>Away <input id="awayTeam" list="savedTeamNames" placeholder="Away team"></label>
+      <label class="team-picker">Home <input id="homeTeam" placeholder="Search team" autocomplete="off"><div class="team-picker-menu" id="homeTeamMenu" hidden></div></label>
+      <label class="team-picker">Away <input id="awayTeam" placeholder="Search team" autocomplete="off"><div class="team-picker-menu" id="awayTeamMenu" hidden></div></label>
       <label>Date <input id="gameDate" type="date"></label>
     </div>
     <button class="button switch-teams-button" id="switchTeams" type="button">⇄ Switch Home/Away</button>
@@ -427,9 +427,8 @@
 
   <datalist id="savedBatterPlayers"></datalist>
   <datalist id="savedPitcherPlayers"></datalist>
-  <datalist id="savedTeamNames"></datalist>
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=55"></script>
-  <script src="app.js?v=55"></script>
+  <script src="pdf-export.js?v=56"></script>
+  <script src="app.js?v=56"></script>
 </body>
 </html>

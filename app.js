@@ -320,17 +320,8 @@ function renderLineupRosterChoices(side = editingTeam) {
 }
 
 function renderSavedPlayerLists() {
-  const teamList = $('savedTeamNames');
   renderLineupRosterChoices(editingTeam);
-  if (teamList) {
-    teamList.innerHTML = savedTeams
-      .filter(team => team.name?.trim())
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((team) => {
-        const counts = teamPlayerCounts(team.lineup);
-        return `<option value="${escapeHtml(team.name)}" label="${counts.batters} batters · ${counts.pitchers} pitchers"></option>`;
-      }).join('');
-  }
+  renderTeamPickers();
 }
 
 function savedTeamForSide(side) {
@@ -574,9 +565,52 @@ function loadSavedTeamFromName(side) {
   loadTeamIntoSide(team.id, side);
 }
 
+function teamPickerMenu(side) {
+  return $(side === 'home' ? 'homeTeamMenu' : 'awayTeamMenu');
+}
+
+function renderTeamPicker(side) {
+  const input = $(side === 'home' ? 'homeTeam' : 'awayTeam');
+  const menu = teamPickerMenu(side);
+  if (!input || !menu) return;
+  const query = normalizePlayerName(input.value);
+  const teams = savedTeams
+    .filter(team => team.name?.trim())
+    .filter(team => !query || normalizePlayerName(team.name).includes(query))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (!savedTeams.length) {
+    menu.innerHTML = '<div class="team-picker-empty">No saved teams yet. Tap Teams and add a roster first.</div>';
+    return;
+  }
+  if (!teams.length) {
+    menu.innerHTML = '<div class="team-picker-empty">No team matches this name.</div>';
+    return;
+  }
+  menu.innerHTML = teams.map((team) => {
+    const counts = teamPlayerCounts(team.lineup);
+    return `<button class="team-picker-option" type="button" data-team-picker="${side}" data-team-id="${escapeHtml(team.id)}"><strong>${escapeHtml(team.name)}</strong><small>${counts.batters} batters · ${counts.pitchers} pitchers</small></button>`;
+  }).join('');
+}
+
+function renderTeamPickers() {
+  renderTeamPicker('home');
+  renderTeamPicker('away');
+}
+
+function openTeamPicker(side) {
+  renderTeamPicker(side);
+  teamPickerMenu(side).hidden = false;
+}
+
+function closeTeamPickers() {
+  ['home', 'away'].forEach(side => {
+    const menu = teamPickerMenu(side);
+    if (menu) menu.hidden = true;
+  });
+}
+
 $('teamsButton').addEventListener('click', () => {
-  $('teamNameInput').value = '';
-  cancelTeamEdit();
+  if (!editingTeamRoster) beginTeamEdit();
   renderTeamsList();
   $('teamsDialog').showModal();
 });
@@ -2133,8 +2167,21 @@ fields.forEach(id => $(id).addEventListener('change', () => { updateResetButtonS
   updateLineupLabels();
   updateLineupCount();
   updateResetButtonState();
+  openTeamPicker(id === 'homeTeam' ? 'home' : 'away');
 }));
 ['homeTeam', 'awayTeam'].forEach((id) => $(id).addEventListener('change', () => {
   loadSavedTeamFromName(id === 'homeTeam' ? 'home' : 'away');
 }));
+['homeTeam', 'awayTeam'].forEach((id) => $(id).addEventListener('focus', () => {
+  openTeamPicker(id === 'homeTeam' ? 'home' : 'away');
+}));
+document.addEventListener('click', (event) => {
+  const option = event.target.closest('[data-team-picker]');
+  if (option) {
+    loadTeamIntoSide(option.dataset.teamId, option.dataset.teamPicker);
+    closeTeamPickers();
+    return;
+  }
+  if (!event.target.closest('.team-picker')) closeTeamPickers();
+});
 load(); renderLineupOptions(); render();

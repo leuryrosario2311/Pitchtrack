@@ -16,6 +16,14 @@ button { cursor: pointer; }
 .game-meta label { display: flex; align-items: center; gap: 8px; color: #bfd0c9; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 .game-meta input { width: 140px; padding: 8px 4px; color: white; background: transparent; border: 0; border-bottom: 1px solid #55776b; outline: none; }
 .game-meta input:focus { border-color: var(--lime); }
+.game-meta .team-picker { position: relative; }
+.team-picker-menu { position: absolute; left: 48px; top: calc(100% + 8px); z-index: 1200; width: min(320px,78vw); max-height: 270px; padding: 8px; overflow-y: auto; color: var(--ink); background: white; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 42px rgba(5,20,40,.26); text-transform: none; letter-spacing: 0; }
+.team-picker-menu[hidden] { display: none; }
+.team-picker-option { display: grid; gap: 2px; width: 100%; min-height: 48px; padding: 10px 12px; color: var(--ink); background: white; border: 0; border-radius: 9px; text-align: left; }
+.team-picker-option:hover, .team-picker-option:focus-visible { background: var(--lime); outline: none; }
+.team-picker-option strong { color: var(--green); font-size: 14px; }
+.team-picker-option small { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.team-picker-empty { padding: 12px; color: var(--muted); font-size: 12px; line-height: 1.35; text-transform: none; letter-spacing: 0; }
 .button { flex: 0 0 auto; border: 0; border-radius: 8px; padding: 11px 17px; font-weight: 800; }
 .button-ghost { color: white; border: 1px solid #55776b; background: transparent; }
 .button-ghost:hover { border-color: var(--lime); color: var(--lime); }
