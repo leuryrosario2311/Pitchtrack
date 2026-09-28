@@ -467,8 +467,15 @@ function upsertSavedRosterPlayer(team, player, kind) {
     (player.number && existing.number && String(existing.number) === String(player.number))
   );
   const rosterPlayer = lineupPlayerToRosterPlayer(player, kind);
-  if (match) Object.assign(match, {...match, ...rosterPlayer, id: match.id || rosterPlayer.id});
-  else collection.push(rosterPlayer);
+  if (match) {
+    Object.entries(rosterPlayer).forEach(([key, value]) => {
+      if (key === 'id') return;
+      if (value || !match[key]) match[key] = value;
+    });
+    match.id = match.id || rosterPlayer.id;
+  } else {
+    collection.push(rosterPlayer);
+  }
 }
 
 function syncLineupToSavedRoster(side) {
@@ -556,22 +563,79 @@ function renderTeamEditor() {
   $('teamEditor').hidden = false;
 }
 
-function parseBatchPlayers(text) {
-  return String(text || '').split(/\n+/).map(line => line.trim()).filter(Boolean).map((line) => {
-    const cleaned = line.replace(/^#/, '').trim();
-    let number = '';
-    let name = cleaned;
-    const commaMatch = cleaned.match(/^(\d{1,3})\s*,\s*(.+)$/);
-    const spacedMatch = cleaned.match(/^(\d{1,3})\s+(.+)$/);
-    if (commaMatch) {
-      number = commaMatch[1];
-      name = commaMatch[2];
-    } else if (spacedMatch) {
-      number = spacedMatch[1];
-      name = spacedMatch[2];
+function parseBatsThrows(value = '') {
+  const text = String(value || '').trim().toUpperCase();
+  const match = text.match(/^([RLS])\s*[/\\-]\s*([RL])$/);
+  if (match) return {bats: match[1], throws: match[2]};
+  if (['R', 'L', 'S'].includes(text)) return {bats: text, throws: text === 'S' ? 'R' : text};
+  return {bats: '', throws: ''};
+}
+
+function looksLikeDOB(value = '') {
+  return /^(\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?|\d{4}[/-]\d{1,2}[/-]\d{1,2})$/.test(String(value || '').trim());
+}
+
+function looksLikeHeight(value = '') {
+  return /^(\d['-]\d{1,2}|\d{1,2}\s*ft|\d{2,3}\s*cm)$/i.test(String(value || '').trim());
+}
+
+function parseBatchLine(line) {
+  const raw = String(line || '').trim();
+  if (!raw) return null;
+  const commaParts = raw.split(',').map(part => part.trim());
+  const tabParts = raw.split(/\t+/).map(part => part.trim()).filter(Boolean);
+  const parts = commaParts.length > 1 ? commaParts : tabParts.length > 1 ? tabParts : [];
+  if (parts.length) {
+    let [number = '', name = '', dob = '', position = '', bt = '', height = '', weight = '', ...hometownParts] = parts;
+    if (/^(#|no\.?|number)$/i.test(number) && /^(name|player)$/i.test(name)) return null;
+    if (!/^\#?\d{1,3}$/.test(number) && /^\#?\d{1,3}\s+/.test(number)) {
+      const match = number.match(/^\#?(\d{1,3})\s+(.+)$/);
+      number = match[1];
+      name = [match[2], name].filter(Boolean).join(' ');
     }
-    return {name: name.trim(), number: number.trim()};
-  }).filter(player => player.name);
+    const split = parseBatsThrows(bt);
+    return {
+      number: number.replace(/^#/, '').trim(),
+      name: name.trim(),
+      dob: dob.trim(),
+      position: position.trim().toUpperCase(),
+      bats: split.bats,
+      throws: split.throws,
+      height: height.trim(),
+      weight: weight.trim(),
+      hometown: hometownParts.join(', ').trim()
+    };
+  }
+
+  const tokens = raw.replace(/^#/, '').split(/\s+/).filter(Boolean);
+  let number = '';
+  if (/^\d{1,3}$/.test(tokens[0] || '')) number = tokens.shift();
+  const infoStart = tokens.findIndex(token =>
+    looksLikeDOB(token) ||
+    ['', 'P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'UTIL'].includes(token.toUpperCase()) ||
+    /^[RLS][/\-][RL]$/i.test(token) ||
+    looksLikeHeight(token)
+  );
+  const nameTokens = infoStart >= 0 ? tokens.slice(0, infoStart) : tokens;
+  const info = infoStart >= 0 ? tokens.slice(infoStart) : [];
+  const player = {number, name: nameTokens.join(' '), dob: '', position: '', bats: '', throws: '', height: '', weight: '', hometown: ''};
+  const leftovers = [];
+  info.forEach((token) => {
+    const upper = token.toUpperCase();
+    const bt = parseBatsThrows(token);
+    if (!player.dob && looksLikeDOB(token)) player.dob = token;
+    else if (!player.position && ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH', 'UTIL'].includes(upper)) player.position = upper;
+    else if ((!player.bats || !player.throws) && bt.bats) { player.bats = bt.bats; player.throws = bt.throws; }
+    else if (!player.height && looksLikeHeight(token)) player.height = token;
+    else if (!player.weight && /^\d{2,3}$/.test(token)) player.weight = token;
+    else leftovers.push(token);
+  });
+  player.hometown = leftovers.join(' ');
+  return player.name ? player : null;
+}
+
+function parseBatchPlayers(text) {
+  return String(text || '').split(/\n+/).map(parseBatchLine).filter(Boolean);
 }
 
 function batchAddTeamPlayers(kind) {
@@ -580,9 +644,9 @@ function batchAddTeamPlayers(kind) {
   const players = parseBatchPlayers($('teamBatchInput').value);
   if (!players.length) return showToast('Paste player names first');
   if (kind === 'batter') {
-    editingTeamRoster.batters.push(...players.map(player => ({...blankRosterPlayer('batter'), ...player})));
+    editingTeamRoster.batters.push(...players.map(player => ({...blankRosterPlayer('batter'), ...player, bats: player.bats || 'R', throws: player.throws || 'R'})));
   } else {
-    editingTeamRoster.pitchers.push(...players.map(player => ({...blankRosterPlayer('pitcher'), ...player})));
+    editingTeamRoster.pitchers.push(...players.map(player => ({...blankRosterPlayer('pitcher'), ...player, position: player.position || 'P', bats: player.bats || 'R', throws: player.throws || 'R'})));
   }
   $('teamBatchInput').value = '';
   renderTeamEditor();
@@ -634,11 +698,83 @@ function cancelTeamEdit() {
   if ($('teamsStartCard')) $('teamsStartCard').hidden = false;
 }
 
+function playerRosterKey(player) {
+  return normalizePlayerName(player?.name);
+}
+
+function levenshteinDistance(a = '', b = '') {
+  const left = normalizePlayerName(a);
+  const right = normalizePlayerName(b);
+  if (left === right) return 0;
+  if (!left) return right.length;
+  if (!right) return left.length;
+  const previous = Array.from({length: right.length + 1}, (_, i) => i);
+  const current = Array(right.length + 1).fill(0);
+  for (let i = 1; i <= left.length; i++) {
+    current[0] = i;
+    for (let j = 1; j <= right.length; j++) {
+      const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+      current[j] = Math.min(current[j - 1] + 1, previous[j] + 1, previous[j - 1] + cost);
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+  return previous[right.length];
+}
+
+function nameMatchPercent(a = '', b = '') {
+  const left = normalizePlayerName(a);
+  const right = normalizePlayerName(b);
+  if (!left || !right) return 0;
+  const longest = Math.max(left.length, right.length);
+  if (!longest) return 0;
+  return Math.round((1 - levenshteinDistance(left, right) / longest) * 100);
+}
+
+function rosterPlayersCombined(roster) {
+  return [
+    ...(roster?.batters || []).map(player => ({...player, role: 'batter'})),
+    ...(roster?.pitchers || []).map(player => ({...player, role: 'pitcher'}))
+  ].filter(player => player.name?.trim());
+}
+
+function validateTeamRosterDuplicates(roster) {
+  const players = rosterPlayersCombined(roster);
+  const seenNames = new Map();
+  for (const player of players) {
+    const key = playerRosterKey(player);
+    if (!key) continue;
+    if (seenNames.has(key)) {
+      showToast(`${player.name} is already in this roster`);
+      alert(`${player.name} is already in this roster. Please remove one copy before saving.`);
+      return false;
+    }
+    seenNames.set(key, player);
+  }
+
+  const warnings = [];
+  for (let i = 0; i < players.length; i++) {
+    for (let j = i + 1; j < players.length; j++) {
+      const a = players[i];
+      const b = players[j];
+      const percent = nameMatchPercent(a.name, b.name);
+      const sameNumber = a.number && b.number && String(a.number) === String(b.number);
+      if (percent >= 82 || sameNumber) {
+        warnings.push(`${a.number ? `#${a.number} ` : ''}${a.name} / ${b.number ? `#${b.number} ` : ''}${b.name} (${sameNumber ? 'same number' : `${percent}% name match`})`);
+      }
+    }
+  }
+  if (warnings.length) {
+    return confirm(`Possible duplicate player${warnings.length === 1 ? '' : 's'} found:\n\n${warnings.slice(0, 5).join('\n')}${warnings.length > 5 ? `\n+ ${warnings.length - 5} more` : ''}\n\nContinue saving?`);
+  }
+  return true;
+}
+
 function saveTeamEditorRoster() {
   const name = $('teamNameInput').value.trim();
   if (!name) return showToast('Enter a team name first');
   readTeamEditor();
   if (!lineupHasRoster(editingTeamRoster)) return showToast('Add at least one player');
+  if (!validateTeamRosterDuplicates(editingTeamRoster)) return;
   const existing = savedTeams.find(team => team.id === editingSavedTeamId || team.name.toLowerCase() === name.toLowerCase());
   const record = {id: existing?.id || createTeamId(), name, updatedAt: new Date().toISOString(), lineup: cleanLineupForTeam(editingTeamRoster)};
   if (existing) Object.assign(existing, record);
@@ -660,6 +796,122 @@ function saveLineupAsTeam(side) {
   else savedTeams.unshift(record);
   persistTeams();
   showToast(`${name} saved`);
+}
+
+function csvCell(value) {
+  return `"${String(value ?? '').replaceAll('"','""')}"`;
+}
+
+function downloadCsv(filename, headers, rows) {
+  const csv = [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function rosterRowsForExport(roster, teamName, sourceLabel = '') {
+  return [
+    ...(roster?.batters || []).map(player => ({...player, role: 'Batter'})),
+    ...(roster?.pitchers || []).map(player => ({...player, role: 'Pitcher'}))
+  ].filter(player => player.name?.trim()).map(player => [
+    $('gameDate').value || todayValue(),
+    teamName,
+    sourceLabel,
+    player.role,
+    player.number || '',
+    player.name || '',
+    player.dob || '',
+    player.position || '',
+    player.bats || '',
+    player.throws || '',
+    player.height || '',
+    player.weight || '',
+    player.hometown || ''
+  ]);
+}
+
+function rosterExportHeaders() {
+  return ['Date','Team','Roster Type','Role','#','Name','DOB','Pos','Bats','Throws','HT','WT','Hometown'];
+}
+
+function findGameSideForTeamName(teamName) {
+  const normalized = normalizePlayerName(teamName);
+  if (!normalized) return '';
+  if (normalizePlayerName($('homeTeam').value) === normalized) return 'home';
+  if (normalizePlayerName($('awayTeam').value) === normalized) return 'away';
+  return '';
+}
+
+function playerExportKey(player = {}) {
+  return player.id || `${normalizePlayerName(player.name)}|${player.number || ''}`;
+}
+
+function detailsFromRoster(roster, player, kind) {
+  const collection = kind === 'pitcher' ? roster?.pitchers || [] : roster?.batters || [];
+  return collection.find(item =>
+    (player.id && item.id === player.id) ||
+    (player.name && normalizePlayerName(item.name) === normalizePlayerName(player.name)) ||
+    (player.number && item.number && String(item.number) === String(player.number))
+  ) || player;
+}
+
+function currentEditorTeamRecord() {
+  const name = $('teamNameInput').value.trim();
+  return savedTeams.find(team => team.id === editingSavedTeamId || normalizePlayerName(team.name) === normalizePlayerName(name)) || null;
+}
+
+function exportFullRosterCsv() {
+  readTeamEditor();
+  const teamName = $('teamNameInput').value.trim() || 'Team';
+  const rows = rosterRowsForExport(editingTeamRoster, teamName, 'Full roster');
+  if (!rows.length) return showToast('Add players before exporting');
+  downloadCsv(`${fileSafeName(teamName)}_${$('gameDate').value || todayValue()}_full-roster.csv`, rosterExportHeaders(), rows);
+  showToast('Full roster exported');
+}
+
+function exportDailyRosterCsv() {
+  readTeamEditor();
+  const teamName = $('teamNameInput').value.trim() || 'Team';
+  const side = findGameSideForTeamName(teamName);
+  const roster = currentEditorTeamRecord()?.lineup || editingTeamRoster;
+  const participants = new Map();
+  const addPlayer = (player, kind, source) => {
+    if (!player?.name?.trim()) return;
+    const detailed = detailsFromRoster(roster, player, kind);
+    participants.set(`${kind}:${playerExportKey(detailed)}`, {...detailed, role: kind === 'pitcher' ? 'Pitcher' : 'Batter', source});
+  };
+
+  if (side) {
+    state.lineups[side].batters.forEach(player => addPlayer(player, 'batter', 'Daily roster'));
+    state.lineups[side].pitchers.forEach(player => addPlayer(player, 'pitcher', 'Daily roster'));
+    state.pitches.forEach((pitch) => {
+      if (pitchBattingTeam(pitch) === side) addPlayer({id: pitch.batterId, name: pitch.batter, number: pitch.batterNumber, bats: pitch.bats}, 'batter', 'Played in game');
+      if (pitchFieldingTeam(pitch) === side) addPlayer({id: pitch.pitcherId, name: pitch.pitcher, number: pitch.pitcherNumber, position: 'P'}, 'pitcher', 'Played in game');
+    });
+  } else {
+    rosterPlayersCombined(editingTeamRoster).forEach(player => addPlayer(player, player.role === 'pitcher' ? 'pitcher' : 'batter', 'Daily roster'));
+  }
+
+  const rows = [...participants.values()].map(player => [
+    $('gameDate').value || todayValue(),
+    teamName,
+    player.source || 'Daily roster',
+    player.role,
+    player.number || '',
+    player.name || '',
+    player.dob || '',
+    player.position || '',
+    player.bats || '',
+    player.throws || '',
+    player.height || '',
+    player.weight || '',
+    player.hometown || ''
+  ]);
+  if (!rows.length) return showToast('No daily roster players to export');
+  downloadCsv(`${gameFileBase()}_${fileSafeName(teamName)}_daily-roster.csv`, rosterExportHeaders(), rows);
+  showToast('Daily roster exported');
 }
 
 function loadTeamIntoSide(teamId, side) {
@@ -785,6 +1037,8 @@ $('batchAddBatters').addEventListener('click', () => batchAddTeamPlayers('batter
 $('batchAddPitchers').addEventListener('click', () => batchAddTeamPlayers('pitcher'));
 $('cancelTeamEdit').addEventListener('click', cancelTeamEdit);
 $('saveTeamRoster').addEventListener('click', saveTeamEditorRoster);
+$('exportDailyRoster').addEventListener('click', exportDailyRosterCsv);
+$('exportFullRoster').addEventListener('click', exportFullRosterCsv);
 $('teamEditor').addEventListener('click', (event) => {
   const removeButton = event.target.closest('[data-remove-team-player]');
   if (!removeButton) return;

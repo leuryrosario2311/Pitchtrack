@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=58">
+  <link rel="stylesheet" href="styles.css?v=61">
 </head>
 <body>
   <header class="topbar">
@@ -307,12 +307,12 @@
                 <p class="eyebrow">Batch add players</p>
                 <h4>Paste many players at once</h4>
               </div>
-              <label class="rename-field"><span>One player per line</span><textarea id="teamBatchInput" rows="5" placeholder="51 Richard de los Santos&#10;3, Max De La Cruz&#10;69     Angeibel Gomez"></textarea></label>
+              <label class="rename-field"><span>One player per line</span><textarea id="teamBatchInput" rows="5" placeholder="#, Name, DOB, Pos, B/T, HT, WT, Hometown&#10;51, Richard de los Santos, 01/15/2010, SS, R/R, 5-9, 155, Santo Domingo&#10;3 Max De La Cruz"></textarea></label>
               <div class="team-batch-actions">
                 <button class="button button-primary" id="batchAddBatters" type="button">＋ Add as batters</button>
                 <button class="button pdf-button" id="batchAddPitchers" type="button">＋ Add as pitchers</button>
               </div>
-              <small>Works with: # Name, #, Name, or # [tab] Name.</small>
+              <small>Works with: # Name, #, Name, or full rows: #, Name, DOB, Pos, B/T, HT, WT, Hometown. Missing info can stay blank.</small>
             </div>
             <div class="team-editor-grid">
               <section>
@@ -327,6 +327,8 @@
               </section>
             </div>
             <div class="team-editor-actions">
+              <button class="button pdf-button" id="exportDailyRoster" type="button">Daily Roster CSV</button>
+              <button class="button pdf-button" id="exportFullRoster" type="button">Full Roster CSV</button>
               <button class="button dialog-cancel" id="cancelTeamEdit" type="button">Cancel</button>
               <button class="button button-primary" id="saveTeamRoster" type="button">Save team roster</button>
             </div>
@@ -428,7 +430,7 @@
   <datalist id="savedBatterPlayers"></datalist>
   <datalist id="savedPitcherPlayers"></datalist>
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=58"></script>
-  <script src="app.js?v=58"></script>
+  <script src="pdf-export.js?v=61"></script>
+  <script src="app.js?v=61"></script>
 </body>
 </html>
