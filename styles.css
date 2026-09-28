@@ -266,6 +266,9 @@ td { padding: 12px 14px; border-top: 1px solid #eceae2; white-space: nowrap; }
 .rename-field input { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 7px; outline: none; }
 .rename-field input:focus { border-color: var(--green-2); box-shadow: 0 0 0 3px rgba(28,90,69,.09); }
 .rename-body p { margin: 9px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.rename-field select { width: 100%; padding: 11px 12px; color: var(--ink); background: white; border: 1px solid var(--line); border-radius: 7px; outline: none; }
+.rename-field select:focus { border-color: var(--green-2); box-shadow: 0 0 0 3px rgba(28,90,69,.09); }
+.merge-match-info { padding: 10px 12px; color: var(--green) !important; background: #edf1d4; border: 1px solid #d4d9c0; border-radius: 8px; font-weight: 800; }
 .rename-actions { justify-content: flex-end; }
 .install-dialog { width: min(500px,92vw); padding: 0; color: var(--ink); background: var(--card); border: 0; border-radius: 14px; box-shadow: 0 28px 80px rgba(0,0,0,.3); }
 .install-dialog::backdrop { background: rgba(8,27,20,.7); backdrop-filter: blur(3px); }

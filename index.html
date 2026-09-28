@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=63">
+  <link rel="stylesheet" href="styles.css?v=64">
 </head>
 <body>
   <header class="topbar">
@@ -281,6 +281,7 @@
             <label class="rename-field"><span>Team name</span><input id="teamNameInput" maxlength="50" placeholder="Example: ASL 14U"></label>
             <div class="team-save-actions">
               <button class="button button-primary" id="createTeamButton" type="button">＋ New / edit roster</button>
+              <button class="button pdf-button" id="mergePlayersButton" type="button">Merge players</button>
               <button class="button pdf-button" id="saveHomeTeam" type="button">Save Home lineup</button>
               <button class="button pdf-button" id="saveAwayTeam" type="button">Save Away lineup</button>
             </div>
@@ -370,6 +371,20 @@
     </div>
   </dialog>
 
+  <dialog class="rename-dialog merge-dialog" id="mergePlayersDialog">
+    <div class="dialog-heading compact">
+      <div><p class="eyebrow">Player cleanup</p><h2>Merge players</h2></div>
+      <button class="dialog-close" id="closeMergePlayers" aria-label="Close merge players">×</button>
+    </div>
+    <div class="rename-body">
+      <p>Select two player records that are the same person. The app will keep the first player and update roster, lineup, and pitch history links.</p>
+      <label class="rename-field"><span>Keep this player</span><select id="mergeKeepPlayer"></select></label>
+      <label class="rename-field"><span>Merge this duplicate into the player above</span><select id="mergeDuplicatePlayer"></select></label>
+      <p id="mergeMatchInfo" class="merge-match-info">Choose two players to see match probability.</p>
+    </div>
+    <div class="dialog-actions rename-actions"><button class="button dialog-cancel" id="cancelMergePlayers">Cancel</button><button class="button button-primary" id="confirmMergePlayers">Merge players</button></div>
+  </dialog>
+
   <dialog class="rename-dialog" id="renameDialog">
     <div class="dialog-heading compact">
       <div><p class="eyebrow">Quick edit</p><h2 id="renameTitle">Rename player</h2></div>
@@ -430,7 +445,7 @@
   <datalist id="savedBatterPlayers"></datalist>
   <datalist id="savedPitcherPlayers"></datalist>
   <div class="toast" id="toast" role="status"></div>
-  <script src="pdf-export.js?v=63"></script>
-  <script src="app.js?v=63"></script>
+  <script src="pdf-export.js?v=64"></script>
+  <script src="app.js?v=64"></script>
 </body>
 </html>

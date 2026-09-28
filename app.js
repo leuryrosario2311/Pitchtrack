@@ -744,6 +744,37 @@ function nameMatchPercent(a = '', b = '') {
   return Math.round((1 - levenshteinDistance(left, right) / longest) * 100);
 }
 
+function sameText(a = '', b = '') {
+  return normalizePlayerName(a) && normalizePlayerName(a) === normalizePlayerName(b);
+}
+
+function playerMatchScore(a = {}, b = {}) {
+  const nameScore = nameMatchPercent(a.name, b.name);
+  const checks = [
+    ['number', a.number, b.number, 18],
+    ['dob', a.dob, b.dob, 22],
+    ['position', a.position, b.position, 8],
+    ['bats', a.bats, b.bats, 6],
+    ['throws', a.throws, b.throws, 6],
+    ['height', a.height, b.height, 8],
+    ['weight', a.weight, b.weight, 8],
+    ['hometown', a.hometown, b.hometown, 10]
+  ];
+  let score = Math.round(nameScore * 0.55);
+  const reasons = [`name ${nameScore}%`];
+  checks.forEach(([label, left, right, weight]) => {
+    if (!left || !right) return;
+    if (sameText(left, right)) {
+      score += weight;
+      reasons.push(`${label} match`);
+    } else {
+      score -= Math.round(weight * 0.55);
+      reasons.push(`${label} different`);
+    }
+  });
+  return {score: Math.max(0, Math.min(99, score)), reasons};
+}
+
 function rosterPlayersCombined(roster) {
   return [
     ...(roster?.batters || []).map(player => ({...player, role: 'batter'})),
@@ -755,12 +786,11 @@ function validateTeamRosterDuplicates(roster) {
   const players = rosterPlayersCombined(roster);
   const seenNames = new Map();
   for (const player of players) {
-    const key = playerRosterKey(player);
+    const key = `${playerRosterKey(player)}|${player.number || ''}|${player.dob || ''}`;
     if (!key) continue;
     if (seenNames.has(key)) {
-      showToast(`${player.name} is already in this roster`);
-      alert(`${player.name} is already in this roster. Please remove one copy before saving.`);
-      return false;
+      const match = playerMatchScore(seenNames.get(key), player);
+      if (!confirm(`${player.name} looks like a duplicate in this roster (${match.score}% match).\n\n${match.reasons.join(' · ')}\n\nContinue anyway as a different player?`)) return false;
     }
     seenNames.set(key, player);
   }
@@ -770,15 +800,15 @@ function validateTeamRosterDuplicates(roster) {
     for (let j = i + 1; j < players.length; j++) {
       const a = players[i];
       const b = players[j];
-      const percent = nameMatchPercent(a.name, b.name);
-      const sameNumber = a.number && b.number && String(a.number) === String(b.number);
-      if (percent >= 82 || sameNumber) {
-        warnings.push(`${a.number ? `#${a.number} ` : ''}${a.name} / ${b.number ? `#${b.number} ` : ''}${b.name} (${sameNumber ? 'same number' : `${percent}% name match`})`);
+      const match = playerMatchScore(a, b);
+      const exactNameOnly = normalizePlayerName(a.name) === normalizePlayerName(b.name);
+      if (match.score >= 72 || exactNameOnly) {
+        warnings.push(`${a.number ? `#${a.number} ` : ''}${a.name} / ${b.number ? `#${b.number} ` : ''}${b.name} (${match.score}% match · ${match.reasons.join(' · ')})`);
       }
     }
   }
   if (warnings.length) {
-    return confirm(`Possible duplicate player${warnings.length === 1 ? '' : 's'} found:\n\n${warnings.slice(0, 5).join('\n')}${warnings.length > 5 ? `\n+ ${warnings.length - 5} more` : ''}\n\nContinue saving?`);
+    return confirm(`Possible same player${warnings.length === 1 ? '' : 's'} found:\n\n${warnings.slice(0, 5).join('\n')}${warnings.length > 5 ? `\n+ ${warnings.length - 5} more` : ''}\n\nIf they are different players, press OK to continue. If they are the same player, press Cancel and use Merge players.`);
   }
   return true;
 }
@@ -928,6 +958,123 @@ function exportDailyRosterCsv() {
   showToast('Daily roster exported');
 }
 
+function allSavedPlayerRecords() {
+  const records = [];
+  savedTeams.forEach((team) => {
+    ['batters', 'pitchers'].forEach((collection) => {
+      (team.lineup?.[collection] || []).forEach((player, index) => {
+        if (!player.name?.trim()) return;
+        records.push({
+          key: `${team.id}|${collection}|${index}`,
+          teamId: team.id,
+          teamName: team.name,
+          collection,
+          index,
+          kind: collection === 'pitchers' ? 'pitcher' : 'batter',
+          player
+        });
+      });
+    });
+  });
+  return records;
+}
+
+function playerOptionLabel(record) {
+  const p = record.player;
+  const role = record.kind === 'pitcher' ? 'P' : 'B';
+  return `${p.number ? `#${p.number} ` : ''}${p.name} · ${record.teamName} · ${role}${p.dob ? ` · ${p.dob}` : ''}${p.position ? ` · ${p.position}` : ''}`;
+}
+
+function renderMergePlayerOptions() {
+  const records = allSavedPlayerRecords();
+  const options = records.map(record => `<option value="${escapeHtml(record.key)}">${escapeHtml(playerOptionLabel(record))}</option>`).join('');
+  $('mergeKeepPlayer').innerHTML = `<option value="">Choose player to keep</option>${options}`;
+  $('mergeDuplicatePlayer').innerHTML = `<option value="">Choose duplicate player</option>${options}`;
+  updateMergeMatchInfo();
+}
+
+function mergeRecordByKey(key) {
+  return allSavedPlayerRecords().find(record => record.key === key) || null;
+}
+
+function updateMergeMatchInfo() {
+  if (!$('mergeMatchInfo')) return;
+  const keep = mergeRecordByKey($('mergeKeepPlayer').value);
+  const duplicate = mergeRecordByKey($('mergeDuplicatePlayer').value);
+  if (!keep || !duplicate) {
+    $('mergeMatchInfo').textContent = 'Choose two players to see match probability.';
+    return;
+  }
+  if (keep.key === duplicate.key) {
+    $('mergeMatchInfo').textContent = 'Choose two different player records.';
+    return;
+  }
+  const match = playerMatchScore(keep.player, duplicate.player);
+  $('mergeMatchInfo').textContent = `${match.score}% probability · ${match.reasons.join(' · ')}`;
+}
+
+function mergePlayerObjects(keepPlayer, duplicatePlayer) {
+  ['number', 'dob', 'position', 'bats', 'throws', 'height', 'weight', 'hometown'].forEach((field) => {
+    if (!keepPlayer[field] && duplicatePlayer[field]) keepPlayer[field] = duplicatePlayer[field];
+  });
+  keepPlayer.id = keepPlayer.id || duplicatePlayer.id || createPlayerId('player');
+  return keepPlayer;
+}
+
+function updateMergedPlayerReferences(keepRecord, duplicateRecord) {
+  const keep = keepRecord.player;
+  const duplicate = duplicateRecord.player;
+  const kind = keepRecord.kind;
+  ['home', 'away'].forEach((side) => {
+    const collection = kind === 'pitcher' ? state.lineups[side].pitchers : state.lineups[side].batters;
+    collection.forEach((player) => {
+      const linked = (duplicate.id && player.id === duplicate.id) ||
+        (player.name && normalizePlayerName(player.name) === normalizePlayerName(duplicate.name) && (!duplicate.number || !player.number || String(player.number) === String(duplicate.number)));
+      if (!linked) return;
+      player.id = keep.id;
+      player.name = keep.name;
+      player.number = keep.number || player.number || '';
+      if (kind === 'batter') {
+        player.position = keep.position || player.position || '';
+        player.bats = keep.bats || player.bats || 'R';
+      } else {
+        player.throws = keep.throws || player.throws || 'R';
+      }
+    });
+  });
+  state.pitches.forEach((pitch) => {
+    const idField = `${kind}Id`;
+    const numberField = `${kind}Number`;
+    const linked = (duplicate.id && pitch[idField] === duplicate.id) ||
+      (pitch[kind] && normalizePlayerName(pitch[kind]) === normalizePlayerName(duplicate.name) && (!duplicate.number || !pitch[numberField] || String(pitch[numberField]) === String(duplicate.number)));
+    if (!linked) return;
+    pitch[idField] = keep.id;
+    pitch[kind] = keep.name;
+    pitch[numberField] = keep.number || '';
+    if (kind === 'batter') pitch.bats = keep.bats || pitch.bats || 'R';
+  });
+}
+
+function confirmMergePlayers() {
+  const keepRecord = mergeRecordByKey($('mergeKeepPlayer').value);
+  const duplicateRecord = mergeRecordByKey($('mergeDuplicatePlayer').value);
+  if (!keepRecord || !duplicateRecord) return showToast('Choose two players first');
+  if (keepRecord.key === duplicateRecord.key) return showToast('Choose two different players');
+  const match = playerMatchScore(keepRecord.player, duplicateRecord.player);
+  if (!confirm(`Merge these player records?\n\nKeep: ${playerOptionLabel(keepRecord)}\nMerge: ${playerOptionLabel(duplicateRecord)}\n\nMatch probability: ${match.score}%\n${match.reasons.join(' · ')}\n\nThis updates rosters, lineups, and pitch history.`)) return;
+  mergePlayerObjects(keepRecord.player, duplicateRecord.player);
+  updateMergedPlayerReferences(keepRecord, duplicateRecord);
+  const duplicateTeam = savedTeams.find(team => team.id === duplicateRecord.teamId);
+  duplicateTeam?.lineup?.[duplicateRecord.collection]?.splice(duplicateRecord.index, 1);
+  persistTeams();
+  renderLineupOptions();
+  syncPlayersForHalf();
+  render();
+  save();
+  renderMergePlayerOptions();
+  showToast('Players merged');
+}
+
 function loadTeamIntoSide(teamId, side) {
   const team = savedTeams.find(item => item.id === teamId);
   if (!team) return;
@@ -1033,6 +1180,16 @@ $('closeTeams').addEventListener('click', () => $('teamsDialog').close());
 $('cancelTeams').addEventListener('click', () => $('teamsDialog').close());
 $('teamsDialog').addEventListener('click', (event) => { if (event.target === $('teamsDialog')) $('teamsDialog').close(); });
 $('createTeamButton').addEventListener('click', () => beginTeamEdit());
+$('mergePlayersButton').addEventListener('click', () => {
+  renderMergePlayerOptions();
+  $('mergePlayersDialog').showModal();
+});
+$('closeMergePlayers').addEventListener('click', () => $('mergePlayersDialog').close());
+$('cancelMergePlayers').addEventListener('click', () => $('mergePlayersDialog').close());
+$('mergeKeepPlayer').addEventListener('change', updateMergeMatchInfo);
+$('mergeDuplicatePlayer').addEventListener('change', updateMergeMatchInfo);
+$('confirmMergePlayers').addEventListener('click', confirmMergePlayers);
+$('mergePlayersDialog').addEventListener('click', (event) => { if (event.target === $('mergePlayersDialog')) $('mergePlayersDialog').close(); });
 $('saveHomeTeam').addEventListener('click', () => saveLineupAsTeam('home'));
 $('saveAwayTeam').addEventListener('click', () => saveLineupAsTeam('away'));
 $('addTeamBatter').addEventListener('click', () => {
