@@ -8,6 +8,8 @@ Open `index.html` in a browser. No installation or server is required.
 
 The current game saves automatically in the browser. Use **Export CSV** to download the game log for analysis in Excel, Numbers, or Google Sheets.
 
+Deployment refresh: v58
+
 ## Install on iPad for offline use
 
 Host this folder on an HTTPS website once, open it in Safari, and choose **Share → Add to Home Screen**. After installation, the service worker caches the entire app so it can launch without internet. Lineups and games remain in local device storage.
