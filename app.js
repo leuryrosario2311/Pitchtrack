@@ -404,10 +404,14 @@ function fillLineupPlayerFromSaved(input) {
     const name = input.value.trim();
     input.value = '';
     updateLineupCount();
+    alert(`${name} is already in this lineup. A player can only be added one time.`);
     return showToast(`${name} is already in this lineup`);
   }
   const player = findSavedRosterPlayer(kind, input.value, editingTeam);
-  if (!player) return quickAddLineupPlayerToRoster(input);
+  if (!player) {
+    if (input.value.trim()) showToast(`${input.value.trim()} will be added to the roster when you save`);
+    return;
+  }
   const row = input.closest('.lineup-row');
   row.querySelector('.lineup-number').value = player.number || '';
   if (kind === 'batter') {
@@ -430,11 +434,21 @@ function validateNoDuplicateLineupPlayers(team = editingTeam) {
   const lineup = state.lineups[team];
   for (const collectionName of ['batters', 'pitchers']) {
     const seen = new Set();
-    for (const player of lineup[collectionName]) {
+    for (let index = 0; index < lineup[collectionName].length; index++) {
+      const player = lineup[collectionName][index];
       const name = normalizePlayerName(player.name);
       if (!name) continue;
       if (seen.has(name)) {
-        showToast(`${player.name} is repeated. A player can only be once in the ${collectionName === 'batters' ? 'batting order' : 'pitching staff'}.`);
+        const area = collectionName === 'batters' ? 'batting order' : 'pitching staff';
+        const message = `${player.name} is repeated in the ${teamDisplayName(team)} ${area}. A player can only be there one time.`;
+        showToast(message);
+        alert(message);
+        if (team === editingTeam) {
+          const list = collectionName === 'batters' ? $('battingLineup') : $('pitchingStaff');
+          const row = list?.querySelectorAll('.lineup-row')?.[index];
+          row?.scrollIntoView({behavior: 'smooth', block: 'center'});
+          row?.querySelector('.lineup-name')?.focus();
+        }
         return false;
       }
       seen.add(name);
