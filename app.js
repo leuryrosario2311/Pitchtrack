@@ -1690,6 +1690,29 @@ $('half').addEventListener('change', () => { syncPlayersForHalf(); save(); });
 
 let editingPlayerKind = null;
 let editingPlayer = null;
+let editingPlayerSide = null;
+
+function playerEditorRoster() {
+  const collection = editingPlayerKind === 'batter' ? 'batters' : 'pitchers';
+  return (savedTeamForSide(editingPlayerSide)?.lineup?.[collection] || []).filter(player => player.name?.trim());
+}
+
+function fillPlayerEditorFromRoster(player) {
+  if (!player) return;
+  $('renameInput').value = player.name;
+  $('renameNumber').value = player.number || '';
+  $('renameRosterPlayer').value = player.id;
+}
+
+$('renameRosterPlayer').addEventListener('change', () => {
+  fillPlayerEditorFromRoster(playerEditorRoster().find(player => player.id === $('renameRosterPlayer').value));
+});
+$('renameInput').addEventListener('input', () => {
+  const match = playerEditorRoster().find(player => normalizePlayerName(player.name) === normalizePlayerName($('renameInput').value));
+  $('renameRosterPlayer').value = match?.id || '';
+  if (match) $('renameNumber').value = match.number || '';
+});
+
 function openPlayerEditor(kind) {
   const select = $(kind);
   if (!select.value) { showToast(`Choose a ${kind} first`); return; }
@@ -1699,12 +1722,15 @@ function openPlayerEditor(kind) {
   const team = kind === 'batter' ? battingTeam : fieldingTeam;
   const collection = kind === 'batter' ? state.lineups[team].batters : state.lineups[team].pitchers;
   editingPlayer = collection.find(p => p.name === select.value) || null;
-  $('renameTitle').textContent = `Rename ${kind}`;
+  editingPlayerSide = team;
+  const roster = playerEditorRoster();
+  $('renameRosterPlayer').innerHTML = '<option value="">Type a name below</option>' + roster.map(player => `<option value="${escapeHtml(player.id)}">${escapeHtml(player.name)}${player.number ? ` · #${escapeHtml(player.number)}` : ''}</option>`).join('');
+  const rosterMatch = roster.find(player => player.id === editingPlayer?.rosterId || normalizePlayerName(player.name) === normalizePlayerName(select.value));
+  $('renameRosterPlayer').value = rosterMatch?.id || '';
+  $('renameTitle').textContent = `Edit ${kind}`;
   $('renameInput').value = select.value;
   $('renameNumber').value = editingPlayer?.number || '';
   $('renameDialog').showModal();
-  $('renameInput').focus();
-  $('renameInput').select();
 }
 $('editBatter').addEventListener('click', () => openPlayerEditor('batter'));
 $('editPitcher').addEventListener('click', () => openPlayerEditor('pitcher'));
@@ -1717,13 +1743,35 @@ $('saveRename').addEventListener('click', () => {
   const newName = $('renameInput').value.trim();
   const newNumber = $('renameNumber').value.trim();
   if (!newName || !editingPlayerKind) return;
-  const oldName = $(editingPlayerKind).value;
+  const oldName = editingPlayer?.name || $(editingPlayerKind).value;
   const battingTeam = $('half').value === 'Top' ? 'away' : 'home';
   const fieldingTeam = battingTeam === 'away' ? 'home' : 'away';
-  const team = editingPlayerKind === 'batter' ? battingTeam : fieldingTeam;
+  const team = editingPlayerSide || (editingPlayerKind === 'batter' ? battingTeam : fieldingTeam);
   const collection = editingPlayerKind === 'batter' ? state.lineups[team].batters : state.lineups[team].pitchers;
   const player = editingPlayer || collection.find(p => p.name === oldName);
-  if (player) { player.name = newName; player.number = newNumber; }
+  if (!player) return;
+  const rosterMatch = playerEditorRoster().find(candidate => normalizePlayerName(candidate.name) === normalizePlayerName(newName));
+  const duplicate = collection.some(candidate => candidate !== player && (
+    normalizePlayerName(candidate.name) === normalizePlayerName(newName) ||
+    (rosterMatch && candidate.rosterId === rosterMatch.id)
+  ));
+  if (duplicate) return showToast(`${newName} is already in this lineup`);
+  const oldRosterId = player.rosterId || player.id;
+  if (rosterMatch) {
+    const gameId = player.id;
+    Object.assign(player, rosterMatch, {id: gameId, rosterId: rosterMatch.id});
+    // Correcting a quick-fill placeholder should not leave a second roster entry.
+    if (/^(Player|Pitcher) \d+$/i.test(oldName) && oldRosterId !== rosterMatch.id) {
+      const savedTeam = savedTeamForSide(team);
+      const key = editingPlayerKind === 'batter' ? 'batters' : 'pitchers';
+      const usedElsewhere = collection.some(candidate => candidate !== player && (candidate.rosterId || candidate.id) === oldRosterId);
+      if (savedTeam && !usedElsewhere) savedTeam.lineup[key] = savedTeam.lineup[key].filter(candidate =>
+        candidate.id !== oldRosterId || candidate.dob || candidate.height || candidate.weight || candidate.hometown
+      );
+    }
+  }
+  player.name = newName;
+  player.number = newNumber;
   syncLineupToSavedRoster(team);
   persistTeams();
   if (editingPlayerKind === 'pitcher' && state.selectedPitchers[team] === oldName) state.selectedPitchers[team] = newName;
@@ -1734,11 +1782,14 @@ $('saveRename').addEventListener('click', () => {
       pitch[`${editingPlayerKind}Id`] = player?.id || '';
       pitch[editingPlayerKind] = newName;
       pitch[`${editingPlayerKind}Number`] = newNumber;
+      if (editingPlayerKind === 'batter') pitch.bats = player.bats;
     }
   });
   renderLineupOptions();
   $(editingPlayerKind).value = newName;
+  if (editingPlayerKind === 'batter') $('bats').value = player.bats || 'R';
   editingPlayer = null;
+  editingPlayerSide = null;
   render(); save(); $('renameDialog').close(); showToast(`${oldName} updated`);
 });
 
