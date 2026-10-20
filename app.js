@@ -447,7 +447,6 @@ function validateNoDuplicateLineupPlayers(team = editingTeam) {
           const list = collectionName === 'batters' ? $('battingLineup') : $('pitchingStaff');
           const row = list?.querySelectorAll('.lineup-row')?.[index];
           row?.scrollIntoView({behavior: 'smooth', block: 'center'});
-          row?.querySelector('.lineup-name')?.focus();
         }
         return false;
       }
@@ -526,8 +525,8 @@ function renderTeamsList() {
   }).join('');
 }
 
-function blankTeamRoster() {
-  return {batters: [], pitchers: []};
+function blankTeamRoster({starterRows = false} = {}) {
+  return {batters: starterRows ? Array.from({length: 9}, () => blankRosterPlayer('batter')) : [], pitchers: []};
 }
 
 function blankRosterPlayer(kind = 'batter') {
@@ -538,7 +537,7 @@ function teamBatterRow(player = {}, index = 0) {
   return `
     <div class="team-player-row batter">
       <span class="order-number">${index + 1}</span>
-      <input class="team-player-name" value="${escapeHtml(player.name || '')}" placeholder="Player name" maxlength="50">
+      <input class="team-player-name" value="${escapeHtml(player.name || '')}" placeholder="Player ${index + 1}" aria-label="Player ${index + 1} name" maxlength="50">
       <input class="team-player-number" value="${escapeHtml(player.number || '')}" placeholder="#" maxlength="3" inputmode="numeric">
       <input class="team-player-dob" value="${escapeHtml(player.dob || '')}" placeholder="DOB">
       <select class="team-player-position">${positionOptions(player.position || '')}</select>
@@ -658,6 +657,7 @@ function batchAddTeamPlayers(kind) {
   const players = parseBatchPlayers($('teamBatchInput').value);
   if (!players.length) return showToast('Paste player names first');
   if (kind === 'batter') {
+    editingTeamRoster.batters = editingTeamRoster.batters.filter(player => player.name || player.number || player.position || player.dob || player.height || player.weight || player.hometown);
     editingTeamRoster.batters.push(...players.map(player => ({...blankRosterPlayer('batter'), ...player, bats: player.bats || 'R', throws: player.throws || 'R'})));
   } else {
     editingTeamRoster.pitchers.push(...players.map(player => ({...blankRosterPlayer('pitcher'), ...player, position: player.position || 'P', bats: player.bats || 'R', throws: player.throws || 'R'})));
@@ -680,7 +680,7 @@ function readTeamEditor() {
     height: row.querySelector('.team-player-height').value.trim(),
     weight: row.querySelector('.team-player-weight').value.trim(),
     hometown: row.querySelector('.team-player-hometown').value.trim()
-  })).filter(player => player.name || player.number || player.position || player.dob || player.height || player.weight || player.hometown);
+  }));
   editingTeamRoster.pitchers = [...$('teamPitchers').querySelectorAll('.team-player-row')].map(row => ({
     id: createPlayerId('pitcher'),
     name: row.querySelector('.team-player-name').value.trim(),
@@ -692,17 +692,16 @@ function readTeamEditor() {
     height: row.querySelector('.team-player-height').value.trim(),
     weight: row.querySelector('.team-player-weight').value.trim(),
     hometown: row.querySelector('.team-player-hometown').value.trim()
-  })).filter(player => player.name || player.number || player.position || player.dob || player.height || player.weight || player.hometown);
+  }));
 }
 
 function beginTeamEdit(team = null) {
   editingSavedTeamId = team?.id || null;
   $('teamNameInput').value = team?.name || $('teamNameInput').value.trim() || '';
-  editingTeamRoster = team ? cleanLineupForTeam(team.lineup) : blankTeamRoster();
+  editingTeamRoster = team ? cleanLineupForTeam(team.lineup) : blankTeamRoster({starterRows: true});
   if (!editingTeamRoster.batters.length) editingTeamRoster.batters.push(blankRosterPlayer('batter'));
   if (!editingTeamRoster.pitchers.length) editingTeamRoster.pitchers.push(blankRosterPlayer('pitcher'));
   renderTeamEditor();
-  $('teamNameInput').focus();
 }
 
 function cancelTeamEdit() {
@@ -1132,7 +1131,7 @@ function createTeamFromPicker(side) {
   const name = input.value.trim();
   if (!name) return showToast('Type a team name first');
   const existing = savedTeams.find(team => normalizePlayerName(team.name) === normalizePlayerName(name));
-  const team = existing || {id: createTeamId(), name, updatedAt: new Date().toISOString(), lineup: blankTeamRoster()};
+  const team = existing || {id: createTeamId(), name, updatedAt: new Date().toISOString(), lineup: blankTeamRoster({starterRows: true})};
   if (!existing) savedTeams.unshift(team);
   input.value = team.name;
   state.lineups[side] = cleanLineupForTeam(team.lineup);
@@ -1192,17 +1191,20 @@ $('confirmMergePlayers').addEventListener('click', confirmMergePlayers);
 $('mergePlayersDialog').addEventListener('click', (event) => { if (event.target === $('mergePlayersDialog')) $('mergePlayersDialog').close(); });
 $('saveHomeTeam').addEventListener('click', () => saveLineupAsTeam('home'));
 $('saveAwayTeam').addEventListener('click', () => saveLineupAsTeam('away'));
+$('quickTeamBatters').addEventListener('click', () => {
+  $('teamBatters').querySelectorAll('.team-player-name').forEach((input, index) => { if (!input.value.trim()) input.value = `Player ${index + 1}`; });
+});
 $('addTeamBatter').addEventListener('click', () => {
   readTeamEditor();
   editingTeamRoster.batters.push(blankRosterPlayer('batter'));
   renderTeamEditor();
-  $('teamBatters').querySelector('.team-player-row:last-child .team-player-name')?.focus();
+  $('teamBatters').querySelector('.team-player-row:last-child .team-player-name')?.scrollIntoView({block: 'nearest'});
 });
 $('addTeamPitcher').addEventListener('click', () => {
   readTeamEditor();
   editingTeamRoster.pitchers.push(blankRosterPlayer('pitcher'));
   renderTeamEditor();
-  $('teamPitchers').querySelector('.team-player-row:last-child .team-player-name')?.focus();
+  $('teamPitchers').querySelector('.team-player-row:last-child .team-player-name')?.scrollIntoView({block: 'nearest'});
 });
 $('batchAddBatters').addEventListener('click', () => batchAddTeamPlayers('batter'));
 $('batchAddPitchers').addEventListener('click', () => batchAddTeamPlayers('pitcher'));
@@ -1370,13 +1372,13 @@ $('addBatterRow').addEventListener('click', () => {
   readLineupEditor();
   state.lineups[editingTeam].batters.push({id: createPlayerId('batter'), name: '', number: '', position: '', bats: 'R'});
   buildLineupEditor();
-  $('battingLineup').querySelector('.lineup-row:last-child .lineup-name').focus();
+  $('battingLineup').querySelector('.lineup-row:last-child .lineup-name').scrollIntoView({block: 'nearest'});
 });
 $('addPitcherRow').addEventListener('click', () => {
   readLineupEditor();
   state.lineups[editingTeam].pitchers.push({id: createPlayerId('pitcher'), name: '', number: '', throws: 'R'});
   buildLineupEditor();
-  $('pitchingStaff').querySelector('.lineup-row:last-child .lineup-name').focus();
+  $('pitchingStaff').querySelector('.lineup-row:last-child .lineup-name').scrollIntoView({block: 'nearest'});
 });
 $('lineupDialog').addEventListener('click', (event) => {
   const returnButton = event.target.closest('.return-player');
@@ -1403,7 +1405,6 @@ $('lineupDialog').addEventListener('click', (event) => {
     buildLineupEditor();
     const row = $('battingLineup').querySelectorAll('.lineup-row')[index];
     row?.scrollIntoView({block: 'nearest'});
-    row?.querySelector('.lineup-name')?.focus();
     showToast(`${returningName} returned for ${currentName}`);
     return;
   }
@@ -1428,7 +1429,6 @@ $('lineupDialog').addEventListener('click', (event) => {
     buildLineupEditor();
     const row = $('battingLineup').querySelectorAll('.lineup-row')[index];
     row?.scrollIntoView({block: 'nearest'});
-    row?.querySelector('.lineup-name')?.focus();
     showToast(`Type the substitute for ${oldPlayer.name || `Player ${index + 1}`}`);
     return;
   }
@@ -1444,7 +1444,6 @@ $('lineupDialog').addEventListener('click', (event) => {
     const movedList = moveButton.dataset.kind === 'batter' ? $('battingLineup') : $('pitchingStaff');
     const movedRow = movedList.querySelectorAll('.lineup-row')[targetIndex];
     movedRow?.scrollIntoView({block: 'nearest'});
-    movedRow?.querySelector('.lineup-name')?.focus();
     return;
   }
   const button = event.target.closest('.remove-player');
